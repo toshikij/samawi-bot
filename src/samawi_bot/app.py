@@ -53,6 +53,20 @@ class App:
         return self.settings.snapshot_dir.parent / "hadith"
 
 
+def s3_client(region: str) -> Any:
+    """Regional endpoint + SigV4. Jakarta (ap-southeast-3) is an opt-in region: a presigned URL on
+    the global s3.amazonaws.com endpoint returns 400, so Meta could not fetch the media."""
+    import boto3
+    from botocore.config import Config
+
+    return boto3.client(
+        "s3",
+        region_name=region,
+        endpoint_url=f"https://s3.{region}.amazonaws.com",
+        config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
+    )
+
+
 def build_app(settings: Settings) -> App:
     import time
 
@@ -64,7 +78,7 @@ def build_app(settings: Settings) -> App:
     engine = make_engine(settings.database_url)
     storage: Storage
     if settings.s3_bucket:
-        storage = S3Storage(boto3.client("s3", region_name=settings.aws_region), settings.s3_bucket, settings.cdn_base_url)
+        storage = S3Storage(s3_client(settings.aws_region), settings.s3_bucket, settings.cdn_base_url)
     else:
         storage = LocalStorage(Path("out/media"))
     mailer: Mailer

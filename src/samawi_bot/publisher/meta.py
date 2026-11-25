@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -13,9 +14,17 @@ TRANSIENT_CODES = frozenset({1, 2, 4, 17, 32, 341, 613})
 TOKEN_CODES = frozenset({102, 190, 463, 467})
 
 
+_URL_QUERY = re.compile(r"(https?://[^\s?\"']+)\?[^\s\"']*")
+
+
+def redact_urls(text: str) -> str:
+    """Drop query strings from URLs: presigned links carry signatures and temporary credentials."""
+    return _URL_QUERY.sub(r"\1?…", text)
+
+
 class MetaApiError(RuntimeError):
     def __init__(self, status: int, code: int | None, message: str, subcode: int | None = None):
-        super().__init__(message)
+        super().__init__(redact_urls(message))
         self.status = status
         self.code = code
         self.subcode = subcode

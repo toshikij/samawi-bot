@@ -529,3 +529,13 @@ def test_expired_token_rejected_by_fake(meta: FakeMeta, http: httpx.Client, slee
         Instagram(g, IG_USER).story("https://cdn.test/s.png")
     assert ei.value.token_problem and ei.value.subcode == 463
     assert sleeps == []
+
+
+def test_meta_errors_never_carry_presigned_query_strings() -> None:
+    from samawi_bot.publisher.meta import MetaApiError, redact_urls
+
+    url = "https://bucket.s3.ap-southeast-3.amazonaws.com/posts/x.png?X-Amz-Credential=ASIA123&X-Amz-Security-Token=SECRET"
+    err = MetaApiError(400, 9004, f"The media could not be fetched from this URI: {url}")
+    assert "SECRET" not in str(err) and "ASIA123" not in str(err)
+    assert "https://bucket.s3.ap-southeast-3.amazonaws.com/posts/x.png?…" in str(err)
+    assert redact_urls("no url here") == "no url here"

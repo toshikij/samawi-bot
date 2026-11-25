@@ -448,3 +448,30 @@ def test_revision_carries_the_cited_excerpts(sources: Sources) -> None:
     assert "ayat 2:282" in text and sources.hadith.get("2962").text_id in text and "fact quran:longest_ayah" in text
     broken = load_draft(claims=[{"text": "x", "source": {"type": "hadith", "ref": "4191"}}])
     assert "[TIDAK DAPAT DIRESOLUSI" in cited_excerpts(sources, broken, TODAY)
+
+
+# ── One hook scale for the writer and the judge ────────────────────────────────────────────────
+
+from samawi_bot.brain import prompts  # noqa: E402
+from samawi_bot.verify.gate import HOOK_MIN, THUMB_STOP_MIN  # noqa: E402
+
+
+def test_writer_and_judges_share_one_hook_scale() -> None:
+    """The writer was taught hooks the judge scored 3; both must now read the same scale."""
+    for name in ("WRITER_SYSTEM", "JUDGE_SYSTEM", "HOOK_SYSTEM", "HOOK_JUDGE_SYSTEM"):
+        assert prompts.HOOK_SCALE in getattr(prompts, name), name
+
+
+def test_hook_scale_states_the_gate_thresholds_unchanged() -> None:
+    assert f"masing-masing ≥ {HOOK_MIN}, thumb_stop ≥ {THUMB_STOP_MIN}" in prompts.HOOK_SCALE
+    assert (HOOK_MIN, THUMB_STOP_MIN) == (8, 7)
+
+
+def test_no_prompt_holds_up_an_answer_leaking_hook_as_good() -> None:
+    leaky = "Tapi soal utang."
+    assert leaky not in prompts.HOOK_SYSTEM.replace(prompts.HOOK_SCALE, "")
+    assert "→ 3 / 6 (jawaban bocor)" in prompts.HOOK_SCALE  # it appears only as the low anchor
+
+
+def test_writer_is_told_to_avoid_the_word_the_caption_check_rejects() -> None:
+    assert '"bersumber"' in prompts.WRITER_SYSTEM

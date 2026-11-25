@@ -7,12 +7,15 @@
 - [x] AWS stack applied (`infra/terraform`, state key `samawi-bot/terraform.tfstate`): ECR `samawi-bot`,
       ECS cluster `samawi`, task `samawi-pipeline`, RDS `samawi-bot` (Postgres 16, private,
       encrypted), S3 `samawi-bot-assets-249746593249`, secrets `samawi-bot/app` and `samawi-bot/db`,
-      7 schedules (**disabled**), alarms + SNS `samawi-bot-alerts`, dashboard service `samawi-dashboard`.
+      7 schedules (**enabled 25 Nov 2026, dry run**), alarms + SNS `samawi-bot-alerts`, dashboard service `samawi-dashboard`.
 - [x] Database migrated; image pushed; `samawi-bot/app` holds the Claude API key and session secret.
 - [x] Playwright MCP QA pass (`QA.md`).
 - [x] Meta developer app **Samawi Bot Publisher** (ID `3524868094341159`) with every Instagram and
       Threads permission the bot uses; Threads tester invite sent to `samawi.indonesia`.
 - [x] Sources refreshed in AWS: 637 HadeethEnc hadith cached, 557 admitted; snapshot and cache persisted to S3.
+- [x] Meta: @samawi.indonesia is a Business account linked to the Samawi Page; Threads tester accepted;
+      Instagram and Threads tokens stored (25 Nov 2026, 59 days, refreshed weekly by `tokens`);
+      live read-only calls to both publishing-limit endpoints return 200.
 - [x] Real Claude runs: the writer → checks → judge loop produces publishable posts (first pass:
       "Ternyata Jayapura sudah Isya saat Banda Aceh belum Maghrib", ~$0.80 including retries).
 

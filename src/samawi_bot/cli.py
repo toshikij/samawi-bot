@@ -15,6 +15,16 @@ from .config import get_settings
 JOBS = ("plan", "produce", "publish", "publish-due", "metrics", "learn", "comments-dm", "tokens", "healthcheck", "evergreen", "refresh-sources")
 
 
+# HTTP client loggers print full request URLs at INFO, and Meta GET requests carry the access
+# token in the query string. Keep them at WARNING so no token ever reaches CloudWatch.
+HTTP_LOGGERS = ("httpx", "httpx2", "httpcore", "httpcore2", "urllib3")
+
+
+def quiet_http_logs() -> None:
+    for name in HTTP_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+
+
 STATEFUL_JOBS = frozenset({"plan", "refresh-sources"})
 
 
@@ -63,6 +73,7 @@ def job_fn(name: str, args: argparse.Namespace) -> Callable[[App], dict[str, Any
 
 def main(argv: Sequence[str] | None = None, app_factory: Callable[[], App] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    quiet_http_logs()
     parser = argparse.ArgumentParser(prog="samawi-bot")
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run")

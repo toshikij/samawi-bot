@@ -10,12 +10,12 @@ from conftest import TODAY, FakeLLM, judge_report, load_draft
 from samawi_bot.brain.llm import LLMError
 from samawi_bot.brain.models import Claim, Draft, SourceRef
 from samawi_bot.brain.prompts import JUDGE_SYSTEM, WRITER_SYSTEM
-from samawi_bot.brain.writer import Attempt, Brief, attempt, judge_prompt, write_verified, writer_prompt
+from samawi_bot.brain.writer import Attempt, Brief, attempt, improve_hooks, judge_prompt, write_verified, writer_prompt
 from samawi_bot.checks.draft_checks import CheckContext, resolve_source
 from samawi_bot.checks.rules import CheckReport, load_too_easy
 from samawi_bot.sources import Sources
 from samawi_bot.verify.facts import fact_pack
-from samawi_bot.verify.gate import GateResult
+from samawi_bot.verify.gate import GateResult, decide
 
 
 def brief(**overrides: object) -> Brief:
@@ -249,10 +249,18 @@ def test_judge_prompt_marks_unresolvable_sources(sources: Sources, source: Sourc
 # ── Hook rounds (spec §3.2: 5 alternatives, judge picks the best) ─────────────────────────────
 
 from samawi_bot.brain.models import HookReport, HookSet  # noqa: E402
-from samawi_bot.brain.writer import HOOK_ROUNDS, hook_judge_prompt, hook_prompt, hooks_only_failure  # noqa: E402
+from samawi_bot.brain.writer import (  # noqa: E402
+    HOOK_ROUNDS,
+    KEEP_BEST,
+    combine_hooks,
+    hook_judge_prompt,
+    hook_prompt,
+    hooks_only_failure,
+    near_misses,
+)
 
 NEW_HOOKS = [
-    "Ternyata ayat terpanjang di Al-Qur'an bukan soal salat",
+    "Ternyata ayat 282 Al-Baqarah bukan soal salat",
     "128 kata dalam satu ayat, dan isinya bukan ibadah",
     "Kenapa ayat terpanjang Al-Qur'an membahas utang?",
     "Ayat terpanjang Al-Qur'an ada di Al-Baqarah 282",
@@ -272,9 +280,11 @@ def test_hooks_only_failure_rewrites_hooks_and_passes(sources: Sources, ctx: Che
     llm = FakeLLM({"Draft": [d], "JudgeReport": [low_hooks(d)], "HookSet": [HookSet(hooks=NEW_HOOKS)], "HookReport": [hook_scores(True)]})
     attempts = write_verified(llm, sources, brief(), ctx)
     assert len(attempts) == 1 and attempts[0].passed
-    assert attempts[0].draft is not None and attempts[0].draft.hooks == NEW_HOOKS
+    # All five tied, so the first two are kept; three new hooks fill the rest.
+    assert attempts[0].draft is not None and attempts[0].draft.hooks == d.hooks[:KEEP_BEST] + NEW_HOOKS[: 5 - KEEP_BEST]
     assert [c[0] for c in llm.calls] == ["Draft", "JudgeReport", "HookSet", "HookReport"]
     assert "curiosity 5" in llm.calls[2][2] and "Al-Baqarah" in llm.calls[2][2]  # scores + payoff slides in the prompt
+    assert "kurang: curiosity 5 < 8" in llm.calls[2][2] and "[DIPERTAHANKAN]" in llm.calls[2][2]
 
 
 def test_hook_rounds_stop_after_the_limit(sources: Sources, ctx: CheckContext) -> None:
@@ -293,11 +303,23 @@ def test_hook_rounds_stop_after_the_limit(sources: Sources, ctx: CheckContext) -
 
 
 def test_hook_rewrite_failing_checks_tries_again(sources: Sources, ctx: CheckContext) -> None:
+    """A round whose candidate fails the checks (here: too few distinct hooks) is spent, not judged."""
     d = load_draft()
-    banned = HookSet(hooks=["Dijamin viral: 99% orang tidak tahu ayat 282"] * 5)
-    llm = FakeLLM({"Draft": [d], "JudgeReport": [low_hooks(d)], "HookSet": [banned, HookSet(hooks=NEW_HOOKS)], "HookReport": [hook_scores(True)]})
+    short = HookSet(hooks=[d.hooks[0], d.hooks[1]])  # only repeats the kept hooks → 2 hooks, check_draft wants 5
+    llm = FakeLLM({"Draft": [d], "JudgeReport": [low_hooks(d)], "HookSet": [short, HookSet(hooks=NEW_HOOKS)], "HookReport": [hook_scores(True)]})
     attempts = write_verified(llm, sources, brief(), ctx)
     assert attempts[0].passed and [c[0] for c in llm.calls].count("HookSet") == 2
+    assert [c[0] for c in llm.calls].count("HookReport") == 1
+
+
+def test_banned_new_hooks_are_discarded_and_never_chosen(sources: Sources, ctx: CheckContext) -> None:
+    d = load_draft()
+    banned = HookSet(hooks=[f"Dijamin viral: 99% orang tidak tahu ayat {n}" for n in (282, 283, 284, 285, 286)])
+    llm = FakeLLM({"Draft": [d], "JudgeReport": [low_hooks(d)], "HookSet": [banned], "HookReport": [hook_scores(True)]})
+    final = write_verified(llm, sources, brief(), ctx)[0]
+    assert final.passed and final.checks is not None and final.gate is not None and final.draft is not None
+    assert final.checks.invalid_hooks == {2, 3, 4}  # the three new hooks, all banned
+    assert final.gate.hook_index in (0, 1) and "Dijamin" not in final.draft.hooks[final.gate.hook_index]
 
 
 def test_hook_judge_error_falls_through_to_redraft(sources: Sources, ctx: CheckContext) -> None:
@@ -321,6 +343,66 @@ def test_retry_revises_the_previous_draft(sources: Sources, ctx: CheckContext) -
     assert attempts[1].passed
     second_prompt = llm.calls[1][2]
     assert "REVISI draft ini" in second_prompt and "customAdzanVoices" in second_prompt
+
+
+def scored(rows: list[tuple[int, int, int, int]]) -> HookReport:
+    return HookReport.model_validate(
+        {"hooks": [{"index": i, "curiosity_gap": c, "specificity": s, "payoff_honesty": p, "thumb_stop": t} for i, (c, s, p, t) in enumerate(rows)]}
+    )
+
+
+def test_near_misses_rank_by_the_weakest_gated_score() -> None:
+    d = load_draft()
+    # Hook 0 has the highest total but a 4 on curiosity; hooks 2 and 3 are 7s across the board.
+    report = scored([(4, 10, 10, 10), (6, 7, 7, 7), (7, 7, 7, 6), (7, 7, 7, 7), (5, 5, 5, 5)])
+    assert near_misses(d, report) == [3, 2]
+    assert near_misses(d, report, excluded={3}) == [2, 1]  # hooks the checks discarded are never kept
+    assert near_misses(d, scored([(9, 9, 9, 9)] * 3 + [(1, 1, 1, 1)] * 2)) == [0, 1]  # ties: lowest index first
+
+
+def test_combine_hooks_keeps_near_misses_and_skips_repeats() -> None:
+    d = load_draft()
+    out = combine_hooks(d, [3, 1], [d.hooks[3], "Baru A", "Baru B", "Baru C", "Baru D"])
+    assert out == [d.hooks[3], d.hooks[1], "Baru A", "Baru B", "Baru C"]
+    assert combine_hooks(d, [], NEW_HOOKS) == NEW_HOOKS
+
+
+def test_hook_prompt_names_each_shortfall() -> None:
+    d = load_draft()
+    p = hook_prompt(d, scored([(6, 9, 9, 6), (9, 9, 9, 9), (8, 7, 8, 7), (8, 8, 8, 7), (1, 1, 1, 1)]), keep=[3])
+    lines = [line for line in p.splitlines() if line.startswith("- ")]
+    assert lines[0].endswith("kurang: curiosity 6 < 8; thumb-stop 6 < 7")
+    assert lines[1].endswith("kurang: lolos") and "specificity 7 < 8" in lines[2]
+    assert lines[3].startswith(f"- [DIPERTAHANKAN] {d.hooks[3]!r}") and p.count("[DIPERTAHANKAN]") == 2  # line + instruction
+    assert "[DIPERTAHANKAN]" not in hook_prompt(d, scored([(5, 5, 5, 5)] * 5))  # no keep, no instruction
+
+
+def test_hook_rounds_carry_the_best_hook_forward(sources: Sources, ctx: CheckContext) -> None:
+    """Round 1's near-miss survives into round 2, is re-scored there, and the gate picks it on the fresh score."""
+    d = load_draft()
+    first = judge_report(d, hooks=[{"index": i, "curiosity_gap": 7 if i == 2 else 5, "specificity": 9, "payoff_honesty": 9, "thumb_stop": 9} for i in range(5)])
+    round1 = HookSet(hooks=["R1 a", "R1 b", "R1 c", "R1 d", "R1 e"])
+    round2 = HookSet(hooks=["R2 a", "R2 b", "R2 c", "R2 d", "R2 e"])
+    r1_scores = scored([(7, 8, 8, 8), (6, 8, 8, 8), (5, 8, 8, 8), (5, 8, 8, 8), (5, 8, 8, 8)])  # kept: d.hooks[2], then d.hooks[0]
+    r2_scores = scored([(9, 9, 9, 9), (5, 9, 9, 9), (5, 9, 9, 9), (5, 9, 9, 9), (5, 9, 9, 9)])
+    llm = FakeLLM({"Draft": [d], "JudgeReport": [first], "HookSet": [round1, round2], "HookReport": [r1_scores, r2_scores]})
+    attempts = write_verified(llm, sources, brief(), ctx)
+    final = attempts[0]
+    assert final.passed and final.draft is not None and final.gate is not None
+    assert final.draft.hooks == [d.hooks[2], d.hooks[0], "R2 a", "R2 b", "R2 c"]
+    assert final.gate.hook_index == 0  # the carried hook, chosen on its round-2 score
+    hook_judge_prompts = [u for name, _, u in llm.calls if name == "HookReport"]
+    assert f"[0] {d.hooks[2]}" in hook_judge_prompts[0] and f"[0] {d.hooks[2]}" in hook_judge_prompts[1]  # re-scored each round
+
+
+def test_kept_hooks_never_include_ones_the_checks_discarded(sources: Sources, ctx: CheckContext) -> None:
+    d = load_draft()
+    first = judge_report(d, hooks=[{"index": i, "curiosity_gap": 7 if i == 0 else 5, "specificity": 9, "payoff_honesty": 9, "thumb_stop": 9} for i in range(5)])
+    attempt0 = Attempt(d, CheckReport(invalid_hooks={0}), first, decide(d, first, {0}))
+    llm = FakeLLM({"HookSet": [HookSet(hooks=NEW_HOOKS)], "HookReport": [hook_scores(True)]})
+    result = improve_hooks(llm, sources, attempt0, ctx)
+    assert result.draft is not None and d.hooks[0] not in result.draft.hooks
+    assert result.draft.hooks[:KEEP_BEST] == [d.hooks[1], d.hooks[2]]
 
 
 def test_hook_prompts_render() -> None:

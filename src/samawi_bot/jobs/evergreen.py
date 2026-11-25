@@ -22,7 +22,10 @@ from ..db.models import EvergreenPost, TopicHistory
 from ..publisher.slots import WIB
 from .content import check_context
 
-EVERGREEN_PILLARS = [p.value for p in Pillar if p is not Pillar.KALENDER]
+# Calendar and prayer-time posts are about a date: their facts are dated (compare/extremes/prayer/hijri,
+# which the evergreen check rejects) or tied to one year (annual), so they cannot sit in a bank of
+# posts meant to publish on any day.
+EVERGREEN_PILLARS = [p.value for p in Pillar if p not in (Pillar.KALENDER, Pillar.LANGIT)]
 COOLDOWN = timedelta(days=60)
 
 

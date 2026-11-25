@@ -275,9 +275,15 @@ def test_upgrade_head_matches_models(tmp_path: Path) -> None:
         assert {c["name"] for c in fresh.get_columns(table)} == {c["name"] for c in migrated.get_columns(table)}, table
 
 
-def test_s3_presigned_urls_use_the_regional_endpoint() -> None:
+def test_s3_presigned_urls_use_the_regional_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     """ap-southeast-3 is an opt-in region: global-endpoint presigned URLs return 400 to Meta."""
     from samawi_bot.app import s3_client
+
+    # Signing is offline; fake credentials keep the test independent of the machine's AWS setup.
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIATESTTESTTESTTEST")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
+    monkeypatch.delenv("AWS_SESSION_TOKEN", raising=False)
+    monkeypatch.delenv("AWS_PROFILE", raising=False)
 
     url = s3_client("ap-southeast-3").generate_presigned_url("get_object", Params={"Bucket": "samawi-test-bucket", "Key": "k.png"}, ExpiresIn=60)
     assert url.startswith("https://samawi-test-bucket.s3.ap-southeast-3.amazonaws.com/k.png?")

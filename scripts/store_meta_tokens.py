@@ -48,7 +48,7 @@ def ask(label, hidden=True):
 
 
 print("Paste each value and press Enter. Secrets are not shown as you type.\n")
-app_id = ask("Meta app ID (App settings → Basic)", hidden=False)
+app_id = input("Meta app ID [3524868094341159, Samawi Bot Publisher]: ").strip() or "3524868094341159"
 app_secret = ask("Meta app secret (App settings → Basic → Show)")
 ig_short = ask("Instagram token from Graph API Explorer (step 5a)")
 LONG_LIVED = "--threads-long-lived" in sys.argv

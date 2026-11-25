@@ -1,0 +1,94 @@
+# Deterministic content rules (spec §2, §3.2, §6.4). Every pattern is matched against text after
+# normalisation (case, diacritics, zero-width characters, leetspeak, spacing tricks).
+# The learner can never edit this file (§9).
+
+banned_hook_patterns:
+  - '\b99 ?% orang'
+  - '\bdijamin\b'
+  - '\bpasti masuk surga\b'
+  - '\brezeki lancar\b'
+  - '\bdosa jika\b'
+  - '\bviral\b'
+  - '\bwajib tahu\b'          # all-caps is also blocked by the shouting check
+
+banned_cta_phrases:
+  - '\btrial\b'
+  - '\buji coba gratis\b'
+  - '\bcoba gratis\b'
+  - '\bgratis \d+ hari\b'
+  - '\brp ?\d'
+  - '\bharga\b'
+  - '\bdiskon\b'
+  - '\bkalau (kamu )?(tidak|gak|nggak|ga) (share|bagikan)'
+  - '\bketik a+mi+n\b'
+  - '\bjadi muslim yang lebih baik dengan'
+  - '\blangganan\b'
+  - '\bberlangganan\b'
+
+competitor_names:
+  - 'umma'
+  - 'muslim pro'
+  - 'muslimpro'
+  - 'muslim muda'
+  - 'quran kemenag'          # the Kemenag *app*, not the translation
+  - "qur'an kemenag"         # normalises to "qur an kemenag"
+  - 'athan'
+  - 'pillars'
+  - 'salaam'
+  - 'muslim assistant'
+  - 'jadwal sholat pro'
+
+blocked_topics:
+  khilafiyah:
+    - '\bqunut\b'
+    - '\btahlil(an)?\b'
+    - '\bmaulid(an)?\b'
+    - '\bziarah\b'
+    - "\\bbid ?'?ah\\b"
+    - '\bnu\b.*\bmuhammadiyah\b|\bmuhammadiyah\b.*\bnu\b'
+    - '\brakaat tarawih\b|\btarawih \d+ rakaat\b|\b(8|11|20|23) rakaat\b'
+    - '\b(18 derajat|18) (vs|versus|atau|lawan) (20 derajat|20)\b|\b(20 derajat|20) (vs|versus|atau|lawan) (18 derajat|18)\b'
+    - '\bsubuh (kepagian|terlalu cepat|kecepatan|kecepetan)\b'
+  politics:
+    - '\bpemilu\b'
+    - '\bpilpres\b'
+    - '\bpilkada\b'
+    - '\bpartai\b'
+    - '\bpresiden\b'
+    - '\bcapres\b'
+    - '\bpalestina\b|\bisrael\b|\bgaza\b'
+  other_religions:
+    - '\bkristen\b|\bkatolik\b|\bhindu\b|\bbuddha\b|\byahudi\b|\bnasrani\b'
+    - '\bkafir\b|\btakfir\b'
+    - '\bsyiah\b|\bwahabi\b|\bsalafi\b'
+  fatwa_style:
+    - '\bhukumnya kamu boleh\b'
+    - '\bkamu (boleh|wajib|haram)\b'   # also at the end of the text
+  health_wealth:
+    - '\bmenyembuhkan\b'
+    - '\bpembuka rezeki\b'
+    - '\brezeki (pasti|langsung)\b'
+    - '\bkaya mendadak\b'
+  ijaz_numerology:
+    - '\bangka 19\b'
+    - '\bmukjizat (ilmiah|angka)\b'
+    - '\bi ?jaz\b'            # normalisation turns "i'jaz" into "i jaz"
+    - '\b(al ?)?qur ?an meramalkan\b'   # "Al-Qur'an" normalises to "al qur an"
+    - '\bsains membuktikan\b'
+  fear_guilt:
+    - '\bdosa (jika|kalau) (tidak|gak) (share|bagikan)'
+    - '\bazab\b'
+    - '\bsiksa kubur\b'
+    - '\bneraka menantimu\b'
+  gender_controversy:
+    - '\bpoligami\b'
+    - '\bhukum (hijab|jilbab|cadar)\b'
+
+hashtags_max: 5
+caption_max_chars: 2200
+threads_post_max_chars: 500
+cover_max_words: 10
+threads_hook_max_chars: 140
+carousel_slides_min: 6
+carousel_slides_max: 9
+topic_cooldown_days: 60

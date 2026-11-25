@@ -1,0 +1,111 @@
+[project]
+name = "samawi-bot"
+version = "0.1.0"
+description = "Autonomous, verified Instagram + Threads content engine for @samawi.indonesia"
+requires-python = ">=3.12"
+dependencies = [
+    "adhanpy>=1.0.5",
+    "alembic>=1.18.5",
+    "anthropic>=2.13.0",
+    "boto3>=1.42.0",
+    "fastapi>=0.120.0",
+    "hijridate>=2.5.0",
+    "httpx>=0.28.1",
+    "imageio-ffmpeg>=0.6.0",
+    "itsdangerous>=2.2.0",
+    "jinja2>=3.1.6",
+    "pillow>=12.0.0",
+    "playwright>=1.56.0",
+    "psycopg[binary]>=3.2.0",
+    "pydantic>=2.12.0",
+    "pydantic-settings>=2.11.0",
+    "python-multipart>=0.0.20",
+    "pyyaml>=6.0.3",
+    "sqlalchemy>=2.0.44",
+    "uvicorn>=0.38.0",
+]
+
+[project.scripts]
+samawi-bot = "samawi_bot.cli:main"
+
+[dependency-groups]
+dev = [
+    "boto3-stubs[s3,ses,scheduler]>=1.42.0",
+    "hypothesis>=6.140.0",
+    "moto[s3,ses,scheduler,secretsmanager]>=5.1.0",
+    "mutmut>=3.3.0",
+    "mypy>=1.18.0",
+    "pytest>=8.4.0",
+    "pytest-cov>=7.0.0",
+    "respx>=0.22.0",
+    "ruff>=0.14.0",
+    "types-pyyaml>=6.0.12",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.17,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = ["browser: renders with headless Chromium (slower)"]
+
+[tool.coverage.run]
+branch = true
+# Playwright's sync API runs page callbacks in greenlets; without this those lines look unrun.
+concurrency = ["thread", "greenlet"]
+source = ["samawi_bot"]
+# Exclusions (spec §10.1), each justified:
+#  - db/migrations/*: Alembic-generated migration scripts and env; exercised by test_migrations
+#    running `upgrade head`, but Alembic loads them by path so coverage cannot attribute lines.
+omit = ["*/samawi_bot/db/migrations/*"]
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
+skip_covered = true
+exclude_also = [
+    # The only other exclusion the spec allows: the module entry point.
+    'if __name__ == "__main__":',
+    "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+packages = ["samawi_bot"]
+mypy_path = "src"
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["adhanpy.*", "hijridate.*", "imageio_ffmpeg.*", "moto.*"]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 160
+extend-exclude = ["src/samawi_bot/db/migrations"]
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "BLE", "SIM", "RUF"]
+ignore = ["S101", "RUF001", "RUF002", "RUF003", "S603", "S311", "SIM108"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "BLE", "B011"]
+
+[tool.mutmut]
+# mutmut 3: copy the whole package (so imports resolve) but only mutate checks/ and verify/,
+# and run only their tests (spec §10.1).
+source_paths = ["src/"]
+only_mutate = ["src/samawi_bot/checks/*", "src/samawi_bot/verify/*"]
+also_copy = ["snapshot/"]
+pytest_add_cli_args = ["-p", "no:cacheprovider", "--hypothesis-seed=0"]
+pytest_add_cli_args_test_selection = [
+    "tests/test_checks_draft.py",
+    "tests/test_checks_rules.py",
+    "tests/test_checks_text.py",
+    "tests/test_verify_facts.py",
+    "tests/test_verify_gate.py",
+]

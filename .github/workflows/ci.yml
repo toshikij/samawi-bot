@@ -1,0 +1,49 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    # Same Chromium and system libraries as production, so golden PNGs (tests/golden/linux) match.
+    container: mcr.microsoft.com/playwright/python:v1.65.2-noble
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { python-version: "3.12", enable-cache: true }
+      - run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check src tests && uv run ruff format --check src tests
+      - name: Types (mypy --strict)
+        run: uv run mypy
+      - name: Tests, ≥ 95% line and branch coverage
+        run: uv run pytest --cov --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=95
+      - name: Safety-critical modules at 100% branch coverage
+        run: >
+          uv run coverage report --fail-under=100
+          --include='src/samawi_bot/verify/*,src/samawi_bot/sources/*,src/samawi_bot/checks/*,src/samawi_bot/sources/features_reader.py,src/samawi_bot/publisher/quota.py,src/samawi_bot/kill_switch.py'
+
+  terraform:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: "1.13.4", terraform_wrapper: false }
+      - name: Terraform fmt and validate
+        working-directory: infra/terraform
+        run: terraform fmt -check && terraform init -backend=false -input=false >/dev/null && terraform validate
+
+  mutation:
+    # Coverage shows code ran; mutation testing shows the tests catch a wrong answer (spec §10.1).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { python-version: "3.12", enable-cache: true }
+      - run: uv sync --frozen
+      - name: mutmut on verify/ and checks/ (kill rate ≥ 90%)
+        run: uv run mutmut run --max-children 4 && uv run python scripts/mutation_gate.py 90

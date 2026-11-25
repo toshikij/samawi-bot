@@ -1,0 +1,134 @@
+{
+  "name": "threads_chain_carousel_first",
+  "requests": [
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads",
+      "params": {
+        "image_url": "https://cdn.test/posts/2026-11-26/siang_feed/01.png",
+        "is_carousel_item": "true",
+        "media_type": "IMAGE"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c1",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c1",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads",
+      "params": {
+        "image_url": "https://cdn.test/posts/2026-11-26/siang_feed/02.png",
+        "is_carousel_item": "true",
+        "media_type": "IMAGE"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c2",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c2",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads",
+      "params": {
+        "image_url": "https://cdn.test/posts/2026-11-26/siang_feed/03.png",
+        "is_carousel_item": "true",
+        "media_type": "IMAGE"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c3",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c3",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads",
+      "params": {
+        "children": "threads_c1,threads_c2,threads_c3",
+        "media_type": "CAROUSEL",
+        "text": "hook"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c4",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c4",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads_publish",
+      "params": {
+        "creation_id": "threads_c4"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads",
+      "params": {
+        "media_type": "TEXT",
+        "reply_to_id": "threads_m5",
+        "text": "dua"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c6",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c6",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads_publish",
+      "params": {
+        "creation_id": "threads_c6"
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+output "ecr_repository_url" { value = aws_ecr_repository.app.repository_url }
+output "assets_bucket" { value = aws_s3_bucket.assets.bucket }
+output "app_secret_arn" { value = aws_secretsmanager_secret.app.arn }
+output "ecs_cluster" { value = aws_ecs_cluster.main.name }
+output "task_definition" { value = aws_ecs_task_definition.pipeline.arn }
+output "task_security_group" { value = aws_security_group.task.id }
+output "subnet_ids" { value = var.subnet_ids }
+output "db_endpoint" { value = aws_db_instance.db.address }
+output "dashboard_access" { value = "scripts/dashboard-tunnel.sh, then http://localhost:3200/samawi" }

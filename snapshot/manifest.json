@@ -1,0 +1,17 @@
+{
+ "ref": "424afb26e21bda553dae37d15e7c0fd253610f87",
+ "fetched_at": "2026-11-25T10:17:47.097816+00:00",
+ "files": {
+  "app/assets/brand/3.0x/symbol-brass.png": "431842dff88765adde3b77ae08b7037aefd939379a414e42a82fc7ff8e7bb1a4",
+  "app/assets/brand/3.0x/symbol-white.png": "f2e648fa0c9222322f5f0dd63d02a97c292016e9c9f9d3ae2366df22daae9446",
+  "app/assets/duas/duas.json": "8be57f8ed76a50aa4d86f024360bc18c9875f0c8ba8f8a968ccf04503a9a0d5e",
+  "app/assets/fonts/AmiriQuran-Regular.ttf": "e2a47644762d16bdfb6d33e0d8db8c6ff30beae84150ef5a705316bbd829455c",
+  "app/assets/fonts/PlusJakartaSans-Variable.ttf": "89b3fb38aa0d275d7a731d0d817a4f1622b316b4d7fbdedcf02ee9099ff68bc8",
+  "app/assets/quran/quran-uthmani.txt": "bf4f57b968d03f4131c070b1e285da9be0e0a108a21c910e872801ca273312c8",
+  "app/assets/quran/translation-id-kemenag.json": "92ca7599040e887c58129f2327e9ce2a4561e1df2b1ac454d77f383c38eca9cc",
+  "app/lib/core/entitlement/samawi_features.dart": "78828222a4a93718279e98bcba7b8367feb32bb7e5bb4edf856cbf79db51689e",
+  "app/lib/core/theme/sky_palette.dart": "8ad653862b24622a34172ecccabd3791ec30feb54cce3c9cd204c9d17e819da7",
+  "app/lib/features/prayer/domain/indonesian_city.dart": "3a2628af831697d8700dabb211695046ef19cc41318f16f91854a873fcb2c48d",
+  "app/lib/features/quran/domain/surahs.dart": "11dd0bf0a69af2b3a0b826578bb12c65711d8a1c003ef3738b4778d7f03bc2cb"
+ }
+}

@@ -1,0 +1,334 @@
+"""write → check → judge (spec §6.3): retries, failure notes, and what the writer and judge see."""
+
+from __future__ import annotations
+
+from datetime import date
+
+import pytest
+
+from conftest import TODAY, FakeLLM, judge_report, load_draft
+from samawi_bot.brain.llm import LLMError
+from samawi_bot.brain.models import Claim, Draft, SourceRef
+from samawi_bot.brain.prompts import JUDGE_SYSTEM, WRITER_SYSTEM
+from samawi_bot.brain.writer import Attempt, Brief, attempt, judge_prompt, write_verified, writer_prompt
+from samawi_bot.checks.draft_checks import CheckContext, resolve_source
+from samawi_bot.checks.rules import CheckReport, load_too_easy
+from samawi_bot.sources import Sources
+from samawi_bot.verify.facts import fact_pack
+from samawi_bot.verify.gate import GateResult
+
+
+def brief(**overrides: object) -> Brief:
+    base: dict[str, object] = {
+        "day": TODAY,
+        "slot": "siang_feed",
+        "pillar": "fakta_quran",
+        "format": "carousel",
+        "hook_formula": "ternyata",
+        "bridge_options": ["tafsir", "khatamPlanner"],
+        "sky_moment": "dzuhur",
+    }
+    base.update(overrides)
+    return Brief(**base)  # type: ignore[arg-type]
+
+
+def bad_draft() -> Draft:
+    return load_draft(bridge_feature="customAdzanVoices")
+
+
+def low_hooks(d: Draft) -> object:
+    return judge_report(d, hooks=[{"index": i, "curiosity_gap": 5, "specificity": 9, "payoff_honesty": 9, "thumb_stop": 9} for i in range(len(d.hooks))])
+
+
+# ── write_verified ─────────────────────────────────────────────────────────────────────────
+
+
+def test_passes_first_time(sources: Sources, ctx: CheckContext) -> None:
+    d = load_draft()
+    llm = FakeLLM({"Draft": [d], "JudgeReport": [judge_report(d)]})
+    attempts = write_verified(llm, sources, brief(), ctx)
+    assert len(attempts) == 1
+    a = attempts[0]
+    assert a.passed
+    assert a.gate is not None and a.gate.hook_index == 0
+    assert [c[0] for c in llm.calls] == ["Draft", "JudgeReport"]
+    assert llm.calls[0][1] == WRITER_SYSTEM
+    assert llm.calls[1][1] == JUDGE_SYSTEM
+    assert a.notes() == ""
+    assert a.report() == {"error": None, "checks": [], "gate": [], "hook_index": 0}
+
+
+def test_writer_llm_error_then_retry_passes(sources: Sources, ctx: CheckContext) -> None:
+    d = load_draft()
+    llm = FakeLLM({"Draft": [LLMError("Claude refused the request"), d], "JudgeReport": [judge_report(d)]})
+    attempts = write_verified(llm, sources, brief(), ctx)
+    assert len(attempts) == 2
+    first, second = attempts
+    assert not first.passed
+    assert first.draft is None and first.checks is None and first.judge is None and first.gate is None
+    assert first.error == "writer: Claude refused the request"
+    assert first.notes() == "- writer: Claude refused the request"
+    assert first.report() == {"error": "writer: Claude refused the request", "checks": None, "gate": None, "hook_index": None}
+    assert second.passed
+    retry_prompt = llm.calls[1][2]
+    assert "Draft sebelumnya GAGAL" in retry_prompt
+    assert "writer: Claude refused the request" in retry_prompt
+
+
+def test_check_failure_skips_judge_and_retry_carries_errors(sources: Sources, ctx: CheckContext) -> None:
+    good = load_draft()
+    llm = FakeLLM({"Draft": [bad_draft(), good], "JudgeReport": [judge_report(good)]})
+    attempts = write_verified(llm, sources, brief(), ctx)
+    assert [c[0] for c in llm.calls] == ["Draft", "Draft", "JudgeReport"]
+    first = attempts[0]
+    assert first.checks is not None and not first.checks.ok
+    assert first.judge is None and first.gate is None
+    assert not first.passed
+    err = "bridge feature 'customAdzanVoices' has status planned, not shipped"
+    assert err in first.checks.errors
+    assert f"- {err}" in first.notes()
+    assert err in llm.calls[1][2]
+    assert "Draft sebelumnya GAGAL" not in llm.calls[0][2]
+    assert attempts[1].passed
+
+
+def test_judge_llm_error_is_a_failed_attempt(sources: Sources, ctx: CheckContext) -> None:
+    d = load_draft()
+    llm = FakeLLM({"Draft": [d, d], "JudgeReport": [LLMError("Claude hit max_tokens"), judge_report(d)]})
+    attempts = write_verified(llm, sources, brief(), ctx)
+    assert len(attempts) == 2
+    assert attempts[0].error == "judge: Claude hit max_tokens"
+    assert attempts[0].checks is not None and attempts[0].checks.ok
+    assert not attempts[0].passed
+    assert attempts[1].passed
+
+
+def test_malformed_judge_report_retries(sources: Sources, ctx: CheckContext) -> None:
+    d = load_draft()
+    malformed = judge_report(d, claims=[{"index": 0, "verdict": "supported"}])  # claim 1 missing
+    llm = FakeLLM({"Draft": [d, d], "JudgeReport": [malformed, judge_report(d)]})
+    attempts = write_verified(llm, sources, brief(), ctx)
+    first = attempts[0]
+    assert first.gate is not None and not first.gate.passed
+    assert any(r.startswith("malformed judge report") for r in first.gate.reasons)
+    assert "malformed judge report" in llm.calls[2][2]  # the second writer call
+    assert attempts[1].passed
+
+
+def test_low_hook_scores_retry(sources: Sources, ctx: CheckContext) -> None:
+    d = load_draft()
+    llm = FakeLLM({"Draft": [d, d], "JudgeReport": [low_hooks(d), judge_report(d)]})
+    attempts = write_verified(llm, sources, brief(), ctx)
+    assert len(attempts) == 2
+    assert attempts[0].gate is not None and attempts[0].gate.hook_index is None
+    assert "no hook scores" in attempts[0].notes()
+    assert attempts[0].report()["hook_index"] is None
+    assert attempts[1].passed
+
+
+def test_two_failures_give_two_attempts_none_passed(sources: Sources, ctx: CheckContext) -> None:
+    d = load_draft()
+    llm = FakeLLM({"Draft": [d, bad_draft()], "JudgeReport": [low_hooks(d)]})
+    attempts = write_verified(llm, sources, brief(), ctx)
+    assert len(attempts) == 2
+    assert not any(a.passed for a in attempts)
+    # The hooks-only failure tries a hook rewrite first (none queued → LLMError), then the redraft.
+    assert [c[0] for c in llm.calls] == ["Draft", "JudgeReport", "HookSet", "Draft"]
+
+
+def test_gate_pass_but_checks_failing_is_not_passed() -> None:
+    a = Attempt(load_draft(), CheckReport(errors=["x"]), None, GateResult(True, 0))
+    assert not a.passed
+    assert a.notes() == "- x"
+
+
+def test_attempt_notes_combine_error_checks_and_gate() -> None:
+    a = Attempt(None, CheckReport(errors=["c1", "c2"]), None, GateResult(False, None, ["g1"]), error="e")
+    assert a.notes() == "- e\n- c1\n- c2\n- g1"
+    assert a.report() == {"error": "e", "checks": ["c1", "c2"], "gate": ["g1"], "hook_index": None}
+
+
+def test_single_attempt_passes_retry_notes(sources: Sources, ctx: CheckContext) -> None:
+    d = load_draft()
+    llm = FakeLLM({"Draft": [d], "JudgeReport": [judge_report(d)]})
+    a = attempt(llm, sources, brief(), ctx, retry_notes="- fix this")
+    assert a.passed
+    assert "## Draft sebelumnya GAGAL. Perbaiki semua masalah ini:\n- fix this" in llm.calls[0][2]
+
+
+# ── writer_prompt ──────────────────────────────────────────────────────────────────────────
+
+
+def test_writer_prompt_lists_only_shipped_named_bridges(sources: Sources) -> None:
+    b = brief(bridge_options=["tafsir", "qibla", "customAdzanVoices", "offlineMurottal", "locationPicker", "deletedFeature"])
+    p = writer_prompt(sources, b, [])
+    assert '- tafsir: "Tafsir" (berbayar)' in p
+    assert '- qibla: "Arah kiblat" (gratis)' in p
+    for key in ("customAdzanVoices", "offlineMurottal", "locationPicker", "deletedFeature"):
+        assert key not in p
+
+
+def test_writer_prompt_lists_admitted_hadith_only(sources: Sources) -> None:
+    p = writer_prompt(sources, brief(), [])
+    admitted = [h.id for h in sources.hadith.candidates()]
+    assert admitted
+    for hid in admitted:
+        assert f"- {hid} — " in p
+    for rejected in ("4191", "5344", "66535"):
+        assert f"- {rejected} — " not in p
+
+
+def test_writer_prompt_contents(sources: Sources) -> None:
+    facts = fact_pack(sources, "fakta_quran", TODAY)
+    b = brief(
+        seasonal="Bulan Rajab: menjelang Ramadan.",
+        series={"id": "s-1", "title": "Seri Ayat", "part": 2, "total": 5},
+        avoid_topics=["Ayat kursi", "Dua bismillah"],
+        hook_examples=["128 kata. Ayat ini soal utang"],
+    )
+    p = writer_prompt(sources, b, facts, retry_notes="- claim 1 unsupported")
+    assert "Tanggal post: 2026-11-26 · slot siang_feed · nuansa langit dzuhur" in p
+    assert "Pilar: fakta_quran · format: carousel · formula hook utama: ternyata" in p
+    assert "Konteks musim/kalender: Bulan Rajab: menjelang Ramadan." in p
+    assert '"title": "Seri Ayat"' in p and "isi `series`" in p
+    for f in facts:
+        assert f.as_prompt() in p
+    for d in sources.duas.all():
+        assert f"- {d.id} — {d.chapter} — {d.reference}" in p
+    for e in load_too_easy():
+        assert f"- {e.text}" in p
+    assert "## Topik 60 hari terakhir (jangan ulang):\n- Ayat kursi\n- Dua bismillah" in p
+    assert "## Hook terbaik akun ini sejauh ini (contoh gaya):\n- 128 kata. Ayat ini soal utang" in p
+    assert p.endswith("## Draft sebelumnya GAGAL. Perbaiki semua masalah ini:\n- claim 1 unsupported")
+
+
+def test_writer_prompt_omits_optional_sections(sources: Sources) -> None:
+    p = writer_prompt(sources, brief(), [])
+    assert "Konteks musim" not in p
+    assert "Seri:" not in p
+    assert "Topik 60 hari" not in p
+    assert "Hook terbaik" not in p
+    assert "GAGAL" not in p
+
+
+# ── judge_prompt ───────────────────────────────────────────────────────────────────────────
+
+
+def test_judge_prompt_includes_resolved_source_text(sources: Sources) -> None:
+    d = load_draft()
+    p = judge_prompt(sources, d, TODAY)
+    for i, c in enumerate(d.claims):
+        text, _ = resolve_source(sources, c.source, TODAY)
+        assert f"[{i}] KLAIM: {c.text}\n    SUMBER ({c.source.type} {c.source.ref}): {text}" in p
+    assert "hendaklah kamu mencatatnya" in p  # the Kemenag translation of 2:282, from the snapshot
+    assert "TIDAK DAPAT DIRESOLUSI" not in p
+    # the draft is shown without its claims block, but with hooks and slides
+    body = p.split("## Draft lengkap", 1)[1]
+    assert '"claims"' not in body
+    assert d.hooks[0] in body
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        SourceRef(type="ayat", ref="115:1"),
+        SourceRef(type="hadith", ref="4191"),
+        SourceRef(type="hadith", ref="999999"),
+        SourceRef(type="dua", ref="no.such.dua"),
+        SourceRef(type="fact", ref="quran:nope"),
+    ],
+)
+def test_judge_prompt_marks_unresolvable_sources(sources: Sources, source: SourceRef) -> None:
+    d = load_draft()
+    d.claims.append(Claim(text="Klaim tanpa dasar", source=source))
+    p = judge_prompt(sources, d, date(2026, 11, 26))
+    assert f"[2] KLAIM: Klaim tanpa dasar\n    SUMBER ({source.type} {source.ref}): [TIDAK DAPAT DIRESOLUSI:" in p
+    assert p.count("TIDAK DAPAT DIRESOLUSI") == 1
+
+
+# ── Hook rounds (spec §3.2: 5 alternatives, judge picks the best) ─────────────────────────────
+
+from samawi_bot.brain.models import HookReport, HookSet  # noqa: E402
+from samawi_bot.brain.writer import HOOK_ROUNDS, hook_judge_prompt, hook_prompt, hooks_only_failure  # noqa: E402
+
+NEW_HOOKS = [
+    "Ternyata ayat terpanjang di Al-Qur'an bukan soal salat",
+    "128 kata dalam satu ayat, dan isinya bukan ibadah",
+    "Kenapa ayat terpanjang Al-Qur'an membahas utang?",
+    "Ayat terpanjang Al-Qur'an ada di Al-Baqarah 282",
+    "Satu ayat di Al-Qur'an mengatur cara mencatat utang",
+]
+
+
+def hook_scores(good: bool) -> HookReport:
+    v = 9 if good else 6
+    return HookReport.model_validate(
+        {"hooks": [{"index": i, "curiosity_gap": v, "specificity": 9, "payoff_honesty": 9, "thumb_stop": v} for i in range(5)], "notes": "n"}
+    )
+
+
+def test_hooks_only_failure_rewrites_hooks_and_passes(sources: Sources, ctx: CheckContext) -> None:
+    d = load_draft()
+    llm = FakeLLM({"Draft": [d], "JudgeReport": [low_hooks(d)], "HookSet": [HookSet(hooks=NEW_HOOKS)], "HookReport": [hook_scores(True)]})
+    attempts = write_verified(llm, sources, brief(), ctx)
+    assert len(attempts) == 1 and attempts[0].passed
+    assert attempts[0].draft is not None and attempts[0].draft.hooks == NEW_HOOKS
+    assert [c[0] for c in llm.calls] == ["Draft", "JudgeReport", "HookSet", "HookReport"]
+    assert "curiosity 5" in llm.calls[2][2] and "Al-Baqarah" in llm.calls[2][2]  # scores + payoff slides in the prompt
+
+
+def test_hook_rounds_stop_after_the_limit(sources: Sources, ctx: CheckContext) -> None:
+    d = load_draft()
+    llm = FakeLLM(
+        {
+            "Draft": [d, d],
+            "JudgeReport": [low_hooks(d), judge_report(d)],
+            "HookSet": [HookSet(hooks=NEW_HOOKS)] * HOOK_ROUNDS,
+            "HookReport": [hook_scores(False)] * HOOK_ROUNDS,
+        }
+    )
+    attempts = write_verified(llm, sources, brief(), ctx)
+    assert [c[0] for c in llm.calls].count("HookSet") == HOOK_ROUNDS
+    assert not attempts[0].passed and attempts[1].passed
+
+
+def test_hook_rewrite_failing_checks_tries_again(sources: Sources, ctx: CheckContext) -> None:
+    d = load_draft()
+    banned = HookSet(hooks=["Dijamin viral: 99% orang tidak tahu ayat 282"] * 5)
+    llm = FakeLLM({"Draft": [d], "JudgeReport": [low_hooks(d)], "HookSet": [banned, HookSet(hooks=NEW_HOOKS)], "HookReport": [hook_scores(True)]})
+    attempts = write_verified(llm, sources, brief(), ctx)
+    assert attempts[0].passed and [c[0] for c in llm.calls].count("HookSet") == 2
+
+
+def test_hook_judge_error_falls_through_to_redraft(sources: Sources, ctx: CheckContext) -> None:
+    d = load_draft()
+    llm = FakeLLM({"Draft": [d, d], "JudgeReport": [low_hooks(d), judge_report(d)], "HookSet": [HookSet(hooks=NEW_HOOKS)]})
+    attempts = write_verified(llm, sources, brief(), ctx)
+    assert attempts[0].error == "hook judge: FakeLLM has no HookReport response queued"
+    assert attempts[1].passed
+
+
+def test_hooks_only_failure_detection() -> None:
+    assert hooks_only_failure(GateResult(False, None, ["no hook scores ≥ 8 on …"]))
+    assert not hooks_only_failure(GateResult(False, None, ["no hook scores ≥ 8 on …", "novelty 50% < 60% (too easy)"]))
+    assert not hooks_only_failure(GateResult(True, 0, []))
+
+
+def test_retry_revises_the_previous_draft(sources: Sources, ctx: CheckContext) -> None:
+    d = load_draft()
+    llm = FakeLLM({"Draft": [bad_draft(), d], "JudgeReport": [judge_report(d)]})
+    attempts = write_verified(llm, sources, brief(), ctx)
+    assert attempts[1].passed
+    second_prompt = llm.calls[1][2]
+    assert "REVISI draft ini" in second_prompt and "customAdzanVoices" in second_prompt
+
+
+def test_hook_prompts_render() -> None:
+    d = load_draft()
+    assert "[0] " + d.hooks[0] in hook_judge_prompt(d)
+    report = judge_report(
+        d,
+        hooks=[{"index": 9, "curiosity_gap": 1, "specificity": 1, "payoff_honesty": 1, "thumb_stop": 1}]
+        + [{"index": i, "curiosity_gap": 5, "specificity": 5, "payoff_honesty": 5, "thumb_stop": 5} for i in range(1, 5)],
+    )
+    assert "index 9" not in hook_prompt(d, report)  # out-of-range indices are skipped, not crashed on

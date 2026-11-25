@@ -1,0 +1,12 @@
+{
+  "name": "ig_publishing_limit",
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://graph.test/v23.0/17841400000000000/content_publishing_limit",
+      "params": {
+        "fields": "quota_usage,config"
+      }
+    }
+  ]
+}

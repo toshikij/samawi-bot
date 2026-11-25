@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block body %}
+<div class="card"><h1>Kill switch: <span class="{{ 's-failed' if kill else 's-ok' }}">{{ 'ON — nothing publishes' if kill else 'off' }}</span></h1>
+{% if kill_env %}<p class="muted">KILL_SWITCH is set in the task environment; turn it off there.</p>{% endif %}
+<form method="post" action="{{ base }}/kill"><input type="hidden" name="on" value="{{ '0' if kill else '1' }}">
+<button class="{{ '' if kill else 'danger' }}">{{ 'Resume publishing' if kill else 'Pause all publishing' }}</button></form></div>
+<h2>Today</h2><table><tr><th>Slot</th><th>Time (WIB)</th><th>Status</th></tr>
+{% for p in today %}<tr><td>{{ p.slot }}</td><td>{{ wib(p.scheduled_at) }}</td><td class="s-{{ p.status }}">{{ p.status }}</td></tr>{% else %}<tr><td colspan="3" class="muted">Nothing planned today.</td></tr>{% endfor %}</table>
+<h2>Tokens</h2><table>{% for t in tokens %}<tr><td>{{ t.platform }}</td><td>expires {{ wib(t.expires_at) }}</td><td class="s-failed">{{ t.last_error or '' }}</td></tr>{% else %}<tr><td class="muted">No tokens stored yet.</td></tr>{% endfor %}</table>
+<h2>Evergreen reserve: {{ reserve }}</h2>
+<h2>Recent runs</h2><table><tr><th>Job</th><th>Started</th><th>Status</th><th>Detail</th></tr>
+{% for r in runs %}<tr><td>{{ r.job }}</td><td>{{ wib(r.started_at) }}</td><td class="s-{{ r.status }}">{{ r.status }}</td><td><pre>{{ r.error or (r.summary | tojson)[:300] }}</pre></td></tr>{% endfor %}</table>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block body %}<h1>Queue — next 7 days</h1>
+{% for p in plans %}<div class="card"><b>{{ wib(p.scheduled_at) }}</b> · {{ p.slot }} · <span class="s-{{ p.status }}">{{ p.status }}</span>
+{% if p.pillar %}<small> · {{ p.pillar }} · {{ p.format }} · hook {{ p.hook_formula }}{% if p.series_part %} · {{ p.series_part }}/{{ p.series_total }}{% endif %} · bridge {{ p.bridge_feature or (p.bridge_options | join(', ')) }}</small>{% endif %}
+{% set d = drafts.get(p.id) %}{% if d %}<p><small>Draft attempt {{ d.attempt }}: <span class="s-{{ 'ok' if d.status == 'passed' else 'failed' }}">{{ d.status }}</span></small>
+{% if d.status == 'failed' %}<pre class="s-failed">{{ (d.check_report.errors or []) | join('\n') }}</pre>{% endif %}</p>{% endif %}
+{% set pl = payloads.get(p.id) %}{% if pl %}
+{% if pl.media %}<div class="thumbs">{% for k in pl.media %}{% if k.endswith('.mp4') %}<video src="{{ base }}/media/{{ k }}" controls height="150"></video>{% else %}<img src="{{ base }}/media/{{ k }}" alt="">{% endif %}{% endfor %}</div>{% endif %}
+{% if pl.caption %}<pre>{{ pl.caption }}</pre>{% endif %}{% if pl.posts %}{% for t in pl.posts %}<pre>— {{ t }}</pre>{% endfor %}{% endif %}{% endif %}
+</div>{% else %}<p class="muted">Nothing planned.</p>{% endfor %}{% endblock %}

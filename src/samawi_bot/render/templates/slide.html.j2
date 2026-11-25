@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><style>
+{% include "base.css.j2" %}
+/* ── cover ── */
+.cover { display: flex; flex-direction: column; justify-content: center; gap: 34px; padding: 88px 64px 150px; }
+.chip { align-self: flex-start; background: var(--panel); color: var(--on-panel); border-radius: 12px; padding: 16px 24px; font-weight: 800; font-size: 28px; letter-spacing: 0.06em; text-transform: uppercase; }
+.cover .scrim { padding: 64px 60px 58px; }
+.cover .hook { font-weight: 800; font-size: {{ s.hook_px }}px; line-height: 1.12; letter-spacing: -0.028em; padding-bottom: 6px; }
+.cover .sub { margin-top: 30px; font-weight: 600; font-size: 38px; line-height: 1.3; color: var(--on-panel-muted); }
+.cover .swipe { position: absolute; right: 64px; bottom: 60px; display: flex; gap: 14px; align-items: center; background: var(--panel); color: var(--on-panel); border-radius: 12px; padding: 16px 26px; font-weight: 800; font-size: 32px; }
+.cover .swipe .arrow { color: var(--panel-accent); }
+.cover .handle { left: 64px; bottom: 60px; background: var(--panel); color: var(--on-panel-muted); border-radius: 12px; padding: 12px 22px 12px 14px; }
+.nb { white-space: nowrap; }
+/* ── inner slides ── */
+.inner { padding: 112px var(--gutter) 150px; display: flex; flex-direction: column; gap: 40px; justify-content: center; }
+.inner.top { justify-content: flex-start; }
+.inner h2 { font-weight: 800; font-size: 66px; line-height: 1.14; letter-spacing: -0.015em; }
+.inner .body { font-weight: 500; font-size: 42px; line-height: 1.45; }
+.inner .body.small { font-size: 38px; }
+.inner .num { font-weight: 800; font-size: 200px; line-height: 0.95; letter-spacing: -0.04em; color: var(--panel-accent); }
+ul.list { list-style: none; display: flex; flex-direction: column; gap: 26px; }
+.list li { display: grid; grid-template-columns: 64px 1fr; gap: 20px; font-weight: 600; font-size: 40px; line-height: 1.35; }
+.list li .dot { font-weight: 800; color: var(--panel-accent); }
+.quote-box { border-left: 6px solid var(--panel-accent); padding: 8px 0 8px 36px; }
+.quote-box .body { font-style: normal; }
+.ayat-wrap { display: flex; flex-direction: column; gap: 36px; justify-content: center; flex: 1; min-height: 0; overflow: hidden; }
+.ayat-wrap .arabic { font-size: {{ s.arabic_px }}px; color: var(--on-panel); }
+.ayat-wrap .translation { font-weight: 500; font-size: {{ s.translation_px }}px; line-height: 1.5; text-align: left; }
+.cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.cmp .cell { border: 2px solid color-mix(in srgb, var(--on-panel) 18%, transparent); border-radius: var(--radius); padding: 36px; }
+.cmp .label { font-weight: 700; font-size: 32px; color: var(--on-panel-muted); }
+.cmp .value { margin-top: 12px; font-weight: 800; font-size: {{ 76 if [s.left_value | length, s.right_value | length] | max <= 6 else 60 }}px; letter-spacing: -0.02em; white-space: nowrap; }
+.inner > .map { position: relative; height: 330px; } /* not .map: the canvas carries the kind as a class too */
+.map .line { position: absolute; left: 0; right: 0; top: 160px; height: 4px; background: color-mix(in srgb, var(--on-panel) 25%, transparent); border-radius: 2px; }
+.map .pin { position: absolute; top: 0; width: 46%; }
+.map .pin.r { right: 0; text-align: right; }
+.map .pin .t { font-weight: 800; font-size: 84px; letter-spacing: -0.02em; }
+.map .pin .p { font-weight: 700; font-size: 32px; color: var(--on-panel-muted); }
+.map .dot { position: absolute; top: 148px; width: 28px; height: 28px; border-radius: 50%; background: var(--panel-accent); }
+.map .dot.l { left: 0; } .map .dot.r { right: 0; }
+/* ── CTA ── */
+.cta { padding: 120px var(--gutter) 120px; display: flex; flex-direction: column; justify-content: center; gap: 46px; }
+.lockup { display: flex; align-items: center; gap: 22px; }
+.lockup img { width: 92px; height: 92px; }
+.lockup .word { font-weight: 800; font-size: 62px; letter-spacing: -0.01em; }
+.lockup .ar { font-family: "SamawiQuran"; font-size: 40px; color: var(--panel-accent); transform: translateY(-8px); }
+.cta .bridge { font-weight: 700; font-size: 50px; line-height: 1.25; }
+.cta .action { font-weight: 800; font-size: 40px; color: var(--hl-fg); background: var(--hl-bg); padding: 26px 32px; border-radius: var(--radius); }
+.cta .follow { font-weight: 600; font-size: 36px; line-height: 1.4; color: var(--on-panel-muted); }
+.cta .share { font-weight: 600; font-size: 34px; color: var(--on-panel-muted); }
+/* ── story ── */
+.canvas > .story { padding: 190px var(--gutter) 220px; display: flex; flex-direction: column; gap: 44px; }
+.times { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+.times .t { border-radius: var(--radius); padding: 22px 18px; text-align: center; border: 2px solid color-mix(in srgb, var(--on-panel) 16%, transparent); }
+.times .t .n { font-weight: 700; font-size: 30px; color: var(--on-panel-muted); }
+.times .t .v { font-weight: 800; font-size: 54px; }
+.thumb { width: 100%; border-radius: var(--radius); }
+</style></head>
+<body><div class="canvas {{ 'sky' if s.on_sky else 'panel' }} {{ s.kind }}" id="canvas">
+{% macro handle() %}<div class="handle"><img src="{{ logo }}" alt=""><span class="txt" data-label="handle">@samawi.indonesia</span></div>{% endmacro %}
+{% if s.kind == "cover" %}
+  {% if s.kicker %}<div class="chip txt" data-label="kicker">{{ s.kicker }}</div>{% endif %}
+  <div class="scrim">
+    <div class="hook txt" data-label="hook">{{ s.hook_html | safe }}</div>
+    {% if s.sub %}<div class="sub txt" data-label="sub">{{ s.sub }}</div>{% endif %}
+  </div>
+  {{ handle() }}
+  <div class="swipe"><span class="txt" data-label="swipe">Geser, jawabannya di sini</span><span class="arrow txt" data-label="arrow">→</span></div>
+{% elif s.kind == "cta" %}
+  <div class="lockup"><img src="{{ logo }}" alt=""><span class="word txt" data-label="wordmark">Samawi</span><span class="ar txt" data-label="wordmark-ar">سماوي</span></div>
+  <div class="rule"></div>
+  <div class="bridge txt" data-label="bridge">{{ s.bridge | nb }}</div>
+  <div class="action txt" data-label="action">{{ s.action | nb }}</div>
+  <div class="follow txt" data-label="follow">{{ s.teaser | nb }}</div>
+  {% if s.share %}<div class="share txt" data-label="share">{{ s.share | nb }}</div>{% endif %}
+{% elif s.kind in ("ayat", "hadith", "dua") %}
+  <div class="inner top" style="height:100%">
+    {% if s.heading %}<h2 class="txt" data-label="heading">{{ s.heading | nb }}</h2>{% endif %}
+    <div class="ayat-wrap" id="fit">
+      {% if s.arabic %}<div class="arabic txt" data-label="arabic" data-expected="{{ s.arabic }}">{{ s.arabic }}</div>{% endif %}
+      {% if s.translation %}<div class="translation txt" data-label="translation" data-expected="{{ s.translation }}">{{ s.translation }}</div>{% endif %}
+      <div class="ref txt" data-label="reference">{{ s.reference }}</div>
+    </div>
+  </div>
+  {{ handle() }}
+{% elif s.kind == "story" %}
+  <div class="story" style="height:100%">
+    <div class="kicker txt" data-label="kicker">{{ s.kicker }}</div>
+    {% if s.heading %}<h2 class="txt" data-label="heading" style="font-weight:800;font-size:70px;line-height:1.1">{{ s.heading | nb }}</h2>{% endif %}
+    {% if s.thumb %}<img class="thumb" src="{{ s.thumb }}" alt="">{% endif %}
+    {% if s.arabic %}<div class="arabic txt" data-label="arabic" data-expected="{{ s.arabic }}" style="font-size:{{ s.arabic_px }}px">{{ s.arabic }}</div>{% endif %}
+    {% if s.translation %}<div class="txt" data-label="translation" data-expected="{{ s.translation }}" style="font-weight:500;font-size:{{ s.translation_px }}px;line-height:1.5">{{ s.translation }}</div>{% endif %}
+    {% if s.reference %}<div class="ref txt" data-label="reference">{{ s.reference }}</div>{% endif %}
+    {% if s.body %}<div class="txt" data-label="body" style="font-weight:700;font-size:46px;line-height:1.3">{{ s.body | nb }}</div>{% endif %}
+    {% if s.times %}
+      <div class="kicker txt" data-label="times-title">{{ s.times_title }}</div>
+      <div class="times">{% for n, v in s.times %}<div class="t"><div class="n txt" data-label="time-{{ n }}">{{ n }}</div><div class="v txt" data-label="value-{{ n }}">{{ v }}</div></div>{% endfor %}</div>
+    {% endif %}
+  </div>
+  {{ handle() }}
+{% else %}
+  <div class="inner" style="height:100%">
+    {% if s.kicker %}<div class="kicker txt" data-label="kicker">{{ s.kicker }}</div>{% endif %}
+    {% if s.big %}<div class="num txt" data-label="big">{{ s.big }}</div>{% endif %}
+    {% if s.heading %}<h2 class="txt" data-label="heading">{{ s.heading | nb }}</h2>{% endif %}
+    {% if s.kind == "comparison" %}
+      <div class="cmp">
+        <div class="cell"><div class="label txt" data-label="left-label">{{ s.left_label | nb }}</div><div class="value txt" data-label="left-value">{{ s.left_value | nb }}</div></div>
+        <div class="cell"><div class="label txt" data-label="right-label">{{ s.right_label | nb }}</div><div class="value txt" data-label="right-value">{{ s.right_value | nb }}</div></div>
+      </div>
+    {% elif s.kind == "map" %}
+      <div class="map">
+        <div class="line"></div><div class="dot l"></div><div class="dot r"></div>
+        <div class="pin"><div class="p txt" data-label="left-label">{{ s.left_label | nb }}</div><div class="t txt" data-label="left-value">{{ s.left_value | nb }}</div></div>
+        <div class="pin r"><div class="p txt" data-label="right-label">{{ s.right_label | nb }}</div><div class="t txt" data-label="right-value">{{ s.right_value | nb }}</div></div>
+      </div>
+    {% endif %}
+    {% if s.body %}<div class="body txt {{ 'small' if s.items }}" data-label="body">{{ s.body | nb }}</div>{% endif %}
+    {% if s.items %}
+      <ul class="list">{% for it in s.items %}<li><span class="dot txt" data-label="bullet-{{ loop.index }}">{{ loop.index if s.kind == "steps" else "—" }}</span><span class="txt" data-label="item-{{ loop.index }}">{{ it | nb }}</span></li>{% endfor %}</ul>
+    {% endif %}
+  </div>
+  {{ handle() }}
+{% endif %}
+{% if s.pager %}<div class="pager txt" data-label="pager">{{ s.pager }}</div>{% endif %}
+</div></body></html>

@@ -49,6 +49,13 @@ def errors(sources: Sources, ctx: CheckContext | None = None, **overrides: Any) 
     return check_draft(load_draft(**overrides), sources, ctx or mkctx()).errors
 
 
+def hook_warnings(sources: Sources, **overrides: Any) -> list[str]:
+    """Hook failures discard the hook (recorded as warnings) instead of failing the draft."""
+    report = check_draft(load_draft(**overrides), sources, mkctx())
+    assert report.errors == [] or report.errors == ["no hook candidate passes the checks"]
+    return report.warnings
+
+
 def caption_plus(text: str) -> str:
     return f"{CAP}\n\n{text}"
 
@@ -127,7 +134,8 @@ def test_resolve_source_dua(sources: Sources) -> None:
     text, fact = resolve_source(sources, SourceRef(type="dua", ref="harian.bangun.1"), TODAY)
     d = sources.duas.get("harian.bangun.1")
     assert fact is None
-    assert text == f"(HR. Bukhari 6312) {d.indonesian}"
+    assert text == f"(HR. Bukhari 6312) [Konteks bacaan: Ketika bangun tidur — Dibaca sesaat setelah terjaga.] {d.indonesian}"
+    assert d.context == "Ketika bangun tidur — Dibaca sesaat setelah terjaga."
 
 
 def test_resolve_source_fact(sources: Sources) -> None:
@@ -226,10 +234,9 @@ def test_uses_yields_claims_then_slides() -> None:
 
 def test_no_claims(sources: Sources) -> None:
     # Without claims, 128 (word count from the longest_ayah fact) is no longer backed either.
-    assert errors(sources, claims=[]) == [
-        "draft has no claims; every factual statement needs a source",
-        "hook 4: number 128 is not backed by any cited source or computation",
-    ]
+    report = check_draft(load_draft(claims=[]), sources, mkctx())
+    assert report.errors == ["draft has no claims; every factual statement needs a source"]
+    assert report.warnings == ["hook 4: number 128 is not backed by any cited source or computation"] and report.invalid_hooks == {3}
 
 
 def test_unresolvable_ayat(sources: Sources) -> None:
@@ -551,11 +558,11 @@ def test_banned_hook_in_hook(sources: Sources, hook: str, hit: str) -> None:
     for i in (0, 4):
         # Leetspeak digits are also unbacked numbers, so a leet hook fails twice.
         leet = [f"hook {i + 1}: number 4 is not backed by any cited source or computation"] if "4" in hook else []
-        assert errors(sources, hooks=hooks_with(hook, i)) == [*leet, f"hook {i + 1}: banned hook pattern {hit!r}"]
+        assert hook_warnings(sources, hooks=hooks_with(hook, i)) == [*leet, f"hook {i + 1}: banned hook pattern {hit!r}"]
 
 
 def test_wajib_tahu_shouting(sources: Sources) -> None:
-    assert errors(sources, hooks=hooks_with("WAJIB TAHU: ayat terpanjang Al-Baqarah 282")) == [
+    assert hook_warnings(sources, hooks=hooks_with("WAJIB TAHU: ayat terpanjang Al-Baqarah 282")) == [
         "hook 1: all-caps shouting",
         "hook 1: banned hook pattern 'wajib tahu'",
     ]
@@ -691,7 +698,7 @@ def test_cover_hook_word_limit(sources: Sources) -> None:
     assert len(ten.split()) == 10
     assert errors(sources, hooks=hooks_with(ten)) == []
     eleven = ten + " lagi"
-    assert errors(sources, hooks=hooks_with(eleven, 2)) == ["hook 3: more than 10 words"]
+    assert hook_warnings(sources, hooks=hooks_with(eleven, 2)) == ["hook 3: more than 10 words"]
 
 
 def test_zero_width_not_counted_as_words(sources: Sources) -> None:
@@ -718,7 +725,7 @@ def test_zero_width_not_counted_as_words(sources: Sources) -> None:
     ],
 )
 def test_hook_needs_something_specific(sources: Sources, hook: str, ok: bool) -> None:
-    errs = errors(sources, hooks=hooks_with(hook, 1))
+    errs = hook_warnings(sources, hooks=hooks_with(hook, 1))
     assert errs == ([] if ok else ["hook 2: needs a number, a proper noun, or a surah/ayat reference"])
 
 
@@ -1016,3 +1023,13 @@ def test_prelaunch_install_cta_anywhere(sources: Sources) -> None:
 
 def test_prelaunch_allows_coming_soon(sources: Sources) -> None:
     assert errors(sources, caption=caption_plus("Segera hadir di Android. Follow biar kamu yang pertama tahu.")) == []
+
+
+def test_a_failing_hook_is_discarded_not_fatal(sources: Sources) -> None:
+    report = check_draft(load_draft(hooks=hooks_with("Dijamin ayat terpanjang Al-Baqarah 282", 2)), sources, mkctx())
+    assert report.ok and report.invalid_hooks == {2}
+
+
+def test_all_five_hooks_failing_fails_the_draft(sources: Sources) -> None:
+    report = check_draft(load_draft(hooks=["Dijamin ayat terpanjang Al-Baqarah 282"] * 5), sources, mkctx())
+    assert report.errors == ["no hook candidate passes the checks"] and report.invalid_hooks == {0, 1, 2, 3, 4}

@@ -46,7 +46,7 @@ def library() -> DuaLibrary:
 
 
 def test_released_entries(library: DuaLibrary) -> None:
-    assert library.get("ok.1") == Dua("ok.1", "Pagi", "ar-ok.1", "lat", "id-ok.1", "HR. Muslim", "free")
+    assert library.get("ok.1") == Dua("ok.1", "Pagi", "ar-ok.1", "lat", "id-ok.1", "HR. Muslim", "free", context="Pagi")
     assert library.get("ok.2") == Dua("ok.2", "", "ar-ok.2", "", "id-ok.2", "", "free")
     assert library.get("ok.3").tier == "paid"  # a collection without a tier is treated as paid
     assert [d.id for d in library.all()] == ["ok.1", "ok.2", "ok.3"]

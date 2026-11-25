@@ -54,6 +54,10 @@ DILARANG di hook: "99% orang…", "dijamin", "pasti masuk surga", "rezeki lancar
   sumber yang kamu kutip. Jangan membulatkan berbeda, jangan menghitung sendiri angka baru.
 - Hanya gunakan hadis dari daftar kandidat yang diberikan (sudah lolos aturan sahih/hasan). Jika tidak ada \
   yang cocok, jangan pakai hadis.
+- Tentang hadis atau doa, nyatakan HANYA apa yang tertulis di teks sumbernya (dan, untuk doa, konteks bacaan \
+  yang diberikan). Jangan menambah kapan/di mana Nabi membacanya, lafaz tambahan, atau detail riwayat dari \
+  ingatan — walaupun kamu yakin itu benar. Juga jangan menyatakan status fikih (mis. "membaca doa ini sama \
+  dengan membaca Al-Qur'an") sebagai satu jawaban.
 - Tanggal awal Ramadan/Syawal selalu "perkiraan, menunggu sidang isbat".
 - Penjelasan hadis ditulis sendiri berdasarkan teks hadis saja — bukan syarah orang lain.
 

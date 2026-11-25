@@ -58,7 +58,8 @@ def resolve_source(sources: Sources, ref: SourceRef, today: date) -> tuple[str, 
         return f"({h.reference}) {h.text_id}", None
     if ref.type == "dua":
         d = sources.duas.get(ref.ref)
-        return f"({d.reference}) {d.indonesian}", None
+        context = f" [Konteks bacaan: {d.context}]" if d.context else ""
+        return f"({d.reference}){context} {d.indonesian}", None
     fact = compute(sources, ref.ref, today)
     return f"{fact.label}: {', '.join(fact.values)} {fact.detail}", fact
 

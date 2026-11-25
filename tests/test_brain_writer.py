@@ -332,3 +332,37 @@ def test_hook_prompts_render() -> None:
         + [{"index": i, "curiosity_gap": 5, "specificity": 5, "payoff_honesty": 5, "thumb_stop": 5} for i in range(1, 5)],
     )
     assert "index 9" not in hook_prompt(d, report)  # out-of-range indices are skipped, not crashed on
+
+
+# ── Source texts in the prompt ─────────────────────────────────────────────────────────────────
+
+from samawi_bot.brain.writer import HADITH_PER_PROMPT, cited_excerpts, hadith_for  # noqa: E402
+
+
+def test_writer_sees_full_hadith_text_not_just_titles(sources: Sources) -> None:
+    prompt = writer_prompt(sources, brief(), [])
+    h = sources.hadith.get("2962")
+    assert h.text_id in prompt
+    assert "jangan menambah konteks riwayat dari ingatan" in prompt
+
+
+def test_hadith_window_rotates_by_day(sources: Sources, monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import timedelta
+
+    fake = [object() for _ in range(HADITH_PER_PROMPT * 3 + 7)]
+    monkeypatch.setattr(sources.hadith, "candidates", lambda limit=None: fake)
+    a, b = hadith_for(sources, brief()), hadith_for(sources, brief(day=TODAY + timedelta(days=1)))
+    assert len(a) == len(b) == HADITH_PER_PROMPT and a != b
+    assert set(map(id, a)) <= set(map(id, fake))
+
+
+def test_small_libraries_are_shown_whole(sources: Sources) -> None:
+    assert len(hadith_for(sources, brief())) == len(sources.hadith.candidates()) <= HADITH_PER_PROMPT
+
+
+def test_revision_carries_the_cited_excerpts(sources: Sources) -> None:
+    d = load_draft()
+    text = cited_excerpts(sources, d, TODAY)
+    assert "ayat 2:282" in text and sources.hadith.get("2962").text_id in text and "fact quran:longest_ayah" in text
+    broken = load_draft(claims=[{"text": "x", "source": {"type": "hadith", "ref": "4191"}}])
+    assert "[TIDAK DAPAT DIRESOLUSI" in cited_excerpts(sources, broken, TODAY)

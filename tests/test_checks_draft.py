@@ -134,7 +134,8 @@ def test_resolve_source_dua(sources: Sources) -> None:
     text, fact = resolve_source(sources, SourceRef(type="dua", ref="harian.bangun.1"), TODAY)
     d = sources.duas.get("harian.bangun.1")
     assert fact is None
-    assert text == f"(HR. Bukhari 6312) {d.indonesian}"
+    assert text == f"(HR. Bukhari 6312) [Konteks bacaan: Ketika bangun tidur — Dibaca sesaat setelah terjaga.] {d.indonesian}"
+    assert d.context == "Ketika bangun tidur — Dibaca sesaat setelah terjaga."
 
 
 def test_resolve_source_fact(sources: Sources) -> None:

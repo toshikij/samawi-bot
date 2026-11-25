@@ -21,6 +21,7 @@ class Dua:
     indonesian: str
     reference: str
     tier: str
+    context: str = ""  # chapter title and subtitle from Samawi's reviewed duas.json, e.g. when it is read
 
 
 class DuaLibrary:
@@ -42,6 +43,7 @@ class DuaLibrary:
                         indonesian=d["indonesian"],
                         reference=d.get("reference", ""),
                         tier=tier,
+                        context=" — ".join(str(x) for x in (chapter.get("title"), chapter.get("subtitle")) if x),
                     )
 
     @classmethod

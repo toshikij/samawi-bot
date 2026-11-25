@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Any
 
-from ..checks.draft_checks import CheckContext, check_draft, resolve_source
+from ..checks.draft_checks import CheckContext, check_draft, resolve_source, uses
 from ..checks.rules import CheckReport, load_too_easy
 from ..sources import Sources
 from ..sources.duas import DuaUnavailable
@@ -65,8 +66,33 @@ class Attempt:
         }
 
 
+HADITH_PER_PROMPT = 30
+
+
+def hadith_for(sources: Sources, brief: Brief) -> list[Any]:
+    """A daily-rotating window over every admitted hadith, so the writer sees full texts without the
+    prompt carrying all of them and without the same 30 appearing every day."""
+    admitted = sources.hadith.candidates()
+    if len(admitted) <= HADITH_PER_PROMPT:
+        return admitted
+    start = (brief.day.toordinal() * HADITH_PER_PROMPT) % len(admitted)
+    return (admitted + admitted)[start : start + HADITH_PER_PROMPT]
+
+
+def cited_excerpts(sources: Sources, draft: Draft, day: date) -> str:
+    """The exact source text behind every reference the previous draft cited, for the revision."""
+    lines = []
+    for ref in {(r.type, r.ref): r for r in uses(draft)}.values():
+        try:
+            text, _ = resolve_source(sources, ref, day)
+        except (InvalidReference, HadithRejected, DuaUnavailable, UnknownFact) as exc:
+            text = f"[TIDAK DAPAT DIRESOLUSI: {exc}]"
+        lines.append(f"- {ref.type} {ref.ref}: {text}")
+    return "\n".join(lines)
+
+
 def writer_prompt(sources: Sources, brief: Brief, facts: list[Fact], retry_notes: str = "") -> str:
-    hadith = sources.hadith.candidates(limit=60)
+    hadith = hadith_for(sources, brief)
     duas = sources.duas.all()
     bridges = []
     for key in brief.bridge_options:
@@ -91,8 +117,9 @@ def writer_prompt(sources: Sources, brief: Brief, facts: list[Fact], retry_notes
         "## Fitur untuk bridge (pilih satu key):",
         *bridges,
         "",
-        "## Kandidat hadis (id — judul). Hanya ini yang boleh dipakai:",
-        *(f"- {h.id} — {h.title} ({h.reference})" for h in hadith),
+        "## Kandidat hadis (id — judul — teks HadeethEnc lengkap). Hanya ini yang boleh dipakai, dan hanya isi teks ini",
+        "## yang boleh kamu nyatakan tentang hadisnya (jangan menambah konteks riwayat dari ingatan):",
+        *(f"- {h.id} — {h.title} ({h.reference}) — {h.text_id}" for h in hadith),
         "",
         "## Doa/dzikir yang tersedia (id — bab — referensi):",
         *(f"- {d.id} — {d.chapter} — {d.reference}" for d in duas),
@@ -188,7 +215,9 @@ def attempt(llm: LLM, sources: Sources, brief: Brief, ctx: CheckContext, retry_n
     prompt = writer_prompt(sources, brief, facts, retry_notes)
     if previous is not None:
         prompt += (
-            "\n\n## Draft sebelumnya — REVISI draft ini, perbaiki hanya masalah di atas; jangan menulis ulang dari nol "
+            "\n\n## Teks sumber yang dikutip draft sebelumnya — klaimmu tidak boleh melebihi teks ini:\n"
+            + cited_excerpts(sources, previous, brief.day)
+            + "\n\n## Draft sebelumnya — REVISI draft ini, perbaiki hanya masalah di atas; jangan menulis ulang dari nol "
             "dan jangan menambah klaim baru tanpa sumber:\n" + previous.model_dump_json()
         )
     try:

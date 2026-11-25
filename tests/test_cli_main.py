@@ -29,6 +29,7 @@ JOB_TARGETS = [
     ("healthcheck", "samawi_bot.jobs.ops", "run_healthcheck"),
     ("evergreen", "samawi_bot.jobs.evergreen", "top_up"),
     ("refresh-sources", "samawi_bot.jobs.plan", "refresh_sources"),
+    ("test-post", "samawi_bot.jobs.test_post", "run_test_post"),
 ]
 
 

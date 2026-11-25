@@ -14,9 +14,9 @@ from ..sources.duas import DuaUnavailable
 from ..sources.hadith import HadithRejected
 from ..sources.quran import InvalidReference
 from ..verify.facts import Fact, UnknownFact, fact_pack
-from ..verify.gate import GateResult, decide
+from ..verify.gate import HOOK_MIN, THUMB_STOP_MIN, GateResult, decide
 from .llm import LLM, LLMError
-from .models import Draft, HookReport, HookSet, JudgeReport
+from .models import Draft, HookReport, HookScore, HookSet, JudgeReport
 from .prompts import HOOK_JUDGE_SYSTEM, HOOK_SYSTEM, JUDGE_SYSTEM, WRITER_SYSTEM
 
 
@@ -154,7 +154,9 @@ def judge_prompt(sources: Sources, draft: Draft, day: date) -> str:
 
 
 HOOK_REASON = "no hook scores"
-HOOK_ROUNDS = 2
+HOOK_ROUNDS = 4  # a round is one short hook write + one short hook judge, far cheaper than a redraft
+KEEP_BEST = 2  # near-miss hooks carried into the next round, so a round never loses ground
+HOOK_COUNT = 5  # check_draft requires exactly 5 candidates
 
 
 def hooks_only_failure(gate: GateResult) -> bool:
@@ -162,18 +164,67 @@ def hooks_only_failure(gate: GateResult) -> bool:
     return not gate.passed and len(gate.reasons) == 1 and gate.reasons[0].startswith(HOOK_REASON)
 
 
-def hook_prompt(draft: Draft, report: JudgeReport | HookReport) -> str:
+def _closeness(h: HookScore) -> tuple[int, int, int, int]:
+    """How near a hook is to passing the gate: its weakest gated score first, then thumb-stop, then the rest."""
+    gated = (h.curiosity_gap, h.specificity, h.payoff_honesty)
+    return (min(gated), h.thumb_stop, sum(gated), -h.index)
+
+
+def near_misses(draft: Draft, report: JudgeReport | HookReport, excluded: frozenset[int] | set[int] = frozenset()) -> list[int]:
+    """Indices of the KEEP_BEST hooks closest to passing. Hooks the checks discarded are never kept.
+
+    Keeping them only saves the writer from throwing away its best work: every hook, kept or new, is
+    scored afresh by the hook judge each round and the gate decides on those fresh scores alone."""
+    scored = [h for h in report.hooks if 0 <= h.index < len(draft.hooks) and h.index not in excluded]
+    return [h.index for h in sorted(scored, key=_closeness, reverse=True)[:KEEP_BEST]]
+
+
+def _shortfalls(h: HookScore) -> str:
+    gaps = [
+        f"{name} {v} < {floor}"
+        for name, v, floor in (
+            ("curiosity", h.curiosity_gap, HOOK_MIN),
+            ("specificity", h.specificity, HOOK_MIN),
+            ("payoff", h.payoff_honesty, HOOK_MIN),
+            ("thumb-stop", h.thumb_stop, THUMB_STOP_MIN),
+        )
+        if v < floor
+    ]
+    return "; ".join(gaps) or "lolos"
+
+
+def hook_prompt(draft: Draft, report: JudgeReport | HookReport, keep: list[int] | None = None) -> str:
+    keep = keep or []
     scores = "\n".join(
-        f"- {draft.hooks[h.index]!r}: curiosity {h.curiosity_gap}, specificity {h.specificity}, payoff {h.payoff_honesty}, thumb-stop {h.thumb_stop}"
+        f"- {'[DIPERTAHANKAN] ' if h.index in keep else ''}{draft.hooks[h.index]!r}: curiosity {h.curiosity_gap}, "
+        f"specificity {h.specificity}, payoff {h.payoff_honesty}, thumb-stop {h.thumb_stop} → kurang: {_shortfalls(h)}"
         for h in report.hooks
         if 0 <= h.index < len(draft.hooks)
+    )
+    kept = (
+        "\n\nHook bertanda [DIPERTAHANKAN] sudah paling dekat lolos dan tetap ikut dinilai ulang. Tulis 5 hook BARU "
+        "yang berbeda dari semuanya, dan perbaiki tepat kekurangan yang tertulis di tiap baris: curiosity rendah = "
+        "jawabannya bocor atau celahnya lemah; specificity rendah = tambahkan angka, nama, surah/ayat, atau tempat "
+        "dari slide 2–3; payoff rendah = janji hook melebihi isi slide 2–3."
+        if keep
+        else ""
     )
     return (
         f"Fakta kunci: {draft.key_fact}\nFormula utama: {draft.hook_formula.value}\n\n"
         "## Slide 2–3 (payoff yang harus dibayar hook)\n"
         + json.dumps([s.model_dump(exclude_defaults=True) for s in draft.slides[:2]], ensure_ascii=False, indent=1)
-        + f"\n\n## Hook sebelumnya dan nilainya (semua < 8)\n{scores}\n\nCatatan juri: {report.notes}"
+        + f"\n\n## Hook sebelumnya, nilainya, dan kekurangannya (lolos = semua ≥ {HOOK_MIN}, thumb-stop ≥ {THUMB_STOP_MIN})\n{scores}"
+        + kept
+        + f"\n\nCatatan juri: {report.notes}"
     )
+
+
+def combine_hooks(draft: Draft, keep: list[int], new: list[str]) -> list[str]:
+    """The kept near-misses first, then new hooks that repeat nothing before them, up to HOOK_COUNT.
+
+    Fewer than HOOK_COUNT distinct hooks fails check_draft, which spends the round rather than
+    judging a short list."""
+    return list(dict.fromkeys([draft.hooks[i] for i in keep] + new))[:HOOK_COUNT]
 
 
 def hook_judge_prompt(draft: Draft) -> str:
@@ -185,15 +236,20 @@ def hook_judge_prompt(draft: Draft) -> str:
 
 
 def improve_hooks(llm: LLM, sources: Sources, first: Attempt, ctx: CheckContext) -> Attempt:
-    """Spec §3.2: the writer produces 5 alternatives and the judge picks the best, up to HOOK_ROUNDS."""
-    assert first.draft is not None and first.judge is not None
+    """Spec §3.2: the writer produces 5 alternatives and the judge picks the best, up to HOOK_ROUNDS.
+
+    Each round keeps the KEEP_BEST near-misses and fills the rest with new hooks written against
+    per-hook feedback. The hook judge re-scores all five every round; the gate is unchanged."""
+    assert first.draft is not None and first.judge is not None and first.checks is not None
     draft, report, last = first.draft, first.judge, first
+    excluded: set[int] = set(first.checks.invalid_hooks)
     for _ in range(HOOK_ROUNDS):
+        keep = near_misses(draft, report, excluded)
         try:
-            hooks = llm.structured(HOOK_SYSTEM, hook_prompt(draft, report), HookSet, effort="high").hooks
+            new = llm.structured(HOOK_SYSTEM, hook_prompt(draft, report, keep), HookSet, effort="high").hooks
         except LLMError as exc:
             return Attempt(last.draft, last.checks, last.judge, last.gate, error=f"hook writer: {exc}")
-        candidate = draft.model_copy(update={"hooks": hooks})
+        candidate = draft.model_copy(update={"hooks": combine_hooks(draft, keep, new)})
         checks = check_draft(candidate, sources, ctx)
         if not checks.ok:
             last = Attempt(candidate, checks, None, None)
@@ -206,7 +262,7 @@ def improve_hooks(llm: LLM, sources: Sources, first: Attempt, ctx: CheckContext)
         last = Attempt(candidate, checks, merged, decide(candidate, merged, checks.invalid_hooks))
         if last.passed:
             return last
-        draft, report = candidate, merged
+        draft, report, excluded = candidate, merged, set(checks.invalid_hooks)
     return last
 
 

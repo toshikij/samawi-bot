@@ -173,3 +173,9 @@ def test_take_refuses_an_unparseable_bank_row(make_app: Callable[..., App]) -> N
         take(app, TODAY)
     (row,) = _rows(app)
     assert row.id == rid and row.last_used_at is None  # not marked as used
+
+
+def test_dated_pillars_never_enter_the_bank() -> None:
+    """Calendar and prayer-time posts are about a date; a bank post must publish on any day."""
+    assert "kalender_hijriah" not in EVERGREEN_PILLARS and "langit_waktu_salat" not in EVERGREEN_PILLARS
+    assert {"fakta_quran", "sunnah_terlupa", "doa_dzikir", "musafir", "hitung_ibadah", "sejarah_kisah"} == set(EVERGREEN_PILLARS)

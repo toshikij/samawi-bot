@@ -25,11 +25,11 @@ jobs:
         run: >
           uv run coverage report --fail-under=100
           --include='src/samawi_bot/verify/*,src/samawi_bot/sources/*,src/samawi_bot/checks/*,src/samawi_bot/sources/features_reader.py,src/samawi_bot/publisher/quota.py,src/samawi_bot/kill_switch.py'
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: "1.13.4", terraform_wrapper: false }
       - name: Terraform fmt and validate
         working-directory: infra/terraform
-        run: |
-          curl -fsSL https://releases.hashicorp.com/terraform/1.13.4/terraform_1.13.4_linux_amd64.zip -o tf.zip && unzip -q tf.zip -d /usr/local/bin
-          terraform fmt -check && terraform init -backend=false -input=false >/dev/null && terraform validate
+        run: terraform fmt -check && terraform init -backend=false -input=false >/dev/null && terraform validate
 
   mutation:
     # Coverage shows code ran; mutation testing shows the tests catch a wrong answer (spec §10.1).

@@ -25,6 +25,11 @@ jobs:
         run: >
           uv run coverage report --fail-under=100
           --include='src/samawi_bot/verify/*,src/samawi_bot/sources/*,src/samawi_bot/checks/*,src/samawi_bot/sources/features_reader.py,src/samawi_bot/publisher/quota.py,src/samawi_bot/kill_switch.py'
+
+  terraform:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
         with: { terraform_version: "1.13.4", terraform_wrapper: false }
       - name: Terraform fmt and validate

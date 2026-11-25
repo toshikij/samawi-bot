@@ -153,3 +153,16 @@ def test_default_factory_builds_from_settings(make_app: Callable[..., App], monk
     monkeypatch.setattr(cli, "build_app", lambda s: app if s is sentinel else pytest.fail("wrong settings"))
     monkeypatch.setattr("samawi_bot.jobs.ops.run_tokens", lambda a: {"ok": a is app})
     assert cli.main(["run", "tokens"]) == 0
+
+
+def test_http_client_loggers_never_log_request_urls(make_app: Callable[..., App], monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    """Meta GETs carry access_token in the URL; httpx logs URLs at INFO. Those loggers must be quiet."""
+    import logging
+
+    monkeypatch.setattr(cli, "job_fn", lambda name, args: lambda app: {})
+    cli.main(["run", "metrics"], app_factory=lambda: make_app())
+    for name in cli.HTTP_LOGGERS:
+        assert logging.getLogger(name).getEffectiveLevel() >= logging.WARNING, name
+    with caplog.at_level(logging.INFO):
+        logging.getLogger("httpx").info("HTTP Request: GET https://graph.facebook.com/x?access_token=SECRET")
+    assert "SECRET" not in caplog.text

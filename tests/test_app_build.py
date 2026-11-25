@@ -273,3 +273,12 @@ def test_upgrade_head_matches_models(tmp_path: Path) -> None:
     assert set(fresh.get_table_names()) <= set(migrated.get_table_names())
     for table in fresh.get_table_names():
         assert {c["name"] for c in fresh.get_columns(table)} == {c["name"] for c in migrated.get_columns(table)}, table
+
+
+def test_s3_presigned_urls_use_the_regional_endpoint() -> None:
+    """ap-southeast-3 is an opt-in region: global-endpoint presigned URLs return 400 to Meta."""
+    from samawi_bot.app import s3_client
+
+    url = s3_client("ap-southeast-3").generate_presigned_url("get_object", Params={"Bucket": "samawi-test-bucket", "Key": "k.png"}, ExpiresIn=60)
+    assert url.startswith("https://samawi-test-bucket.s3.ap-southeast-3.amazonaws.com/k.png?")
+    assert "X-Amz-Algorithm=AWS4-HMAC-SHA256" in url

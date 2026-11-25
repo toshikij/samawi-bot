@@ -1,0 +1,6 @@
+vpc_id        = "vpc-06c3998b2676c074b"                                  # agena-prod
+subnet_ids    = ["subnet-0d9f0b40127d16250"]                             # agena-prod-public
+db_subnet_ids = ["subnet-06e97b034784fb680", "subnet-09ff4d4a9268dc0d6"] # agena-prod-private-a/b
+schedules_enabled = false
+publish_live      = false
+launch_mode       = "prelaunch"

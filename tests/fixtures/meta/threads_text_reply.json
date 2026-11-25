@@ -1,0 +1,64 @@
+{
+  "name": "threads_text_reply",
+  "requests": [
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads",
+      "params": {
+        "media_type": "TEXT",
+        "text": "Post satu"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c1",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c1",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads_publish",
+      "params": {
+        "creation_id": "threads_c1"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads",
+      "params": {
+        "media_type": "TEXT",
+        "reply_to_id": "threads_m2",
+        "text": "Post dua"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c3",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c3",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads_publish",
+      "params": {
+        "creation_id": "threads_c3"
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+ "topic": "Ayat terpanjang di Al-Qur'an membahas utang-piutang",
+ "key_fact": "Ayat terpanjang di Al-Qur'an, Al-Baqarah 282, membahas pencatatan utang-piutang",
+ "pillar": "fakta_quran", "format": "carousel", "hook_formula": "ternyata",
+ "hooks": ["Ternyata ayat terpanjang di Al-Qur'an bukan soal salat", "Ayat terpanjang Al-Qur'an ada di Al-Baqarah 282", "Kenapa ayat terpanjang Al-Qur'an bahas utang?", "128 kata. Ayat terpanjang ini soal utang", "Satu ayat terpanjang, isinya catatan utang"],
+ "slides": [
+  {"template": "fact", "heading": "Jawabannya: soal utang-piutang", "body": "Ayat terpanjang di Al-Qur'an adalah Al-Baqarah ayat 282. Isinya bukan ibadah ritual, tapi cara mencatat utang.", "left_value": "282", "items": [], "left_label": "", "right_label": "", "right_value": ""},
+  {"template": "ayat", "heading": "Awal ayatnya", "body": "", "source": {"type": "ayat", "ref": "2:282"}, "items": [], "left_label": "", "left_value": "", "right_label": "", "right_value": ""},
+  {"template": "list", "heading": "Yang diatur ayat ini", "body": "", "items": ["Utang yang bertempo ditulis", "Ada penulis yang adil", "Ada saksi", "Jangan malas mencatat, kecil atau besar"], "left_label": "", "left_value": "", "right_label": "", "right_value": ""},
+  {"template": "comparison", "heading": "Bandingkan panjangnya", "body": "", "items": [], "left_label": "Al-Baqarah 282", "left_value": "128 kata", "right_label": "Surah terpendek", "right_value": "3 ayat"},
+  {"template": "takeaway", "heading": "Catat utangmu hari ini", "body": "", "items": ["Tulis siapa, berapa, kapan jatuh tempo", "Simpan di tempat yang dua pihak tahu"], "left_label": "", "left_value": "", "right_label": "", "right_value": ""}
+ ],
+ "takeaway": "Catat setiap utang, sekecil apa pun.",
+ "bridge_feature": "tafsir",
+ "bridge_line": "Mau tahu tafsir lengkap ayat ini? Tafsir di Samawi bisa dibaca kapan saja, tanpa iklan.",
+ "next_teaser": "Besok: satu-satunya surah dengan dua Bismillah. Follow @samawi.indonesia biar nggak ketinggalan.",
+ "share_prompt": "Kirim ke teman yang lagi pinjam-meminjam.",
+ "caption": "Ternyata ayat terpanjang di Al-Qur'an bukan soal salat.\n\nAl-Baqarah ayat 282 membahas cara mencatat utang.",
+ "hashtags": ["#samawi", "#faktaquran", "#alquran"],
+ "thread": ["Ternyata ayat terpanjang di Al-Qur'an bukan soal salat. Tapi soal utang.", "Al-Baqarah ayat 282."],
+ "threads_subuh": "Refleksi pagi.", "threads_malam": "Kamu pernah lupa mencatat utang?",
+ "claims": [{"text": "Ayat terpanjang di Al-Qur'an adalah Al-Baqarah ayat 282", "source": {"type": "fact", "ref": "quran:longest_ayah"}}],
+ "series": {"id": "ayat-jarang", "title": "Seri Ayat yang Jarang Dibahas", "part": 1, "total": 5}
+}

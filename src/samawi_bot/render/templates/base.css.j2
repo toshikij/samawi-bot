@@ -1,0 +1,46 @@
+@font-face { font-family: "SamawiSans"; src: url("{{ fonts.jakarta }}") format("truetype"); font-weight: 200 800; font-display: block; }
+@font-face { font-family: "SamawiQuran"; src: url("{{ fonts.amiri }}") format("truetype"); font-display: block; }
+
+:root {
+  --ink: {{ brand.ink }};
+  --panel-dark: {{ brand.panel_dark }};
+  --paper: {{ brand.paper }};
+  --muted: {{ brand.muted }};
+  --on-dark: {{ brand.on_dark }};
+  --brass: {{ brand.brass }};
+  --deep-ink: {{ brand.deep_ink }};
+  --sky-top: {{ sky.top }};
+  --sky-mid: {{ sky.mid or sky.bottom }};
+  --sky-bottom: {{ sky.bottom }};
+  --sky-accent: {{ sky.accent }};
+  --panel: {{ panel }};
+  --on-panel: {{ on_panel }};
+  --on-panel-muted: {{ on_panel_muted }};
+  --panel-accent: {{ panel_accent }};
+  --hl-bg: {{ highlight_bg }};
+  --hl-fg: {{ highlight_fg }};
+  --gutter: 88px;
+  --radius: 16px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: {{ width }}px; height: {{ height }}px; overflow: hidden; }
+body { font-family: "SamawiSans"; -webkit-font-smoothing: antialiased; font-feature-settings: "tnum" 1, "lnum" 1; }
+.canvas { position: relative; width: {{ width }}px; height: {{ height }}px; overflow: hidden; }
+.sky { background: linear-gradient(180deg, var(--sky-top) 0%, {% if sky.mid %}var(--sky-mid) 52%, {% endif %}var(--sky-bottom) 100%); }
+.sky::before { /* low, soft horizon glow: light, not decoration */
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 60%; pointer-events: none;
+  background: radial-gradient(ellipse 90% 70% at 50% 110%, rgba(255,255,255,{{ '0.10' if sky.is_dark else '0.22' }}), transparent 70%);
+}
+.panel { background: var(--panel); color: var(--on-panel); }
+.scrim { position: relative; background: color-mix(in srgb, var(--panel) 94%, transparent); border-radius: var(--radius); padding: 56px 60px; color: var(--on-panel); }
+.txt { }
+.kicker { font-weight: 700; font-size: 30px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--on-panel-muted); }
+.kicker.on-sky { color: {{ sky.on_sky if not sky.requires_scrim else on_panel }}; }
+.hl { background: var(--hl-bg); color: var(--hl-fg); padding: 0 0.12em; border-radius: 6px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.accent { color: var(--panel-accent); }
+.arabic { font-family: "SamawiQuran"; direction: rtl; text-align: center; line-height: 2.15; font-feature-settings: normal; }
+.ref { font-weight: 600; font-size: 30px; color: var(--on-panel-muted); }
+.pager { position: absolute; right: var(--gutter); bottom: 64px; font-weight: 700; font-size: 26px; color: var(--on-panel-muted); }
+.handle { position: absolute; left: var(--gutter); bottom: 64px; font-weight: 700; font-size: 26px; color: var(--on-panel-muted); display: flex; align-items: center; gap: 14px; }
+.handle img { width: 34px; height: 34px; }
+.rule { width: 72px; height: 6px; background: var(--panel-accent); border-radius: 3px; }

@@ -1,0 +1,13 @@
+{
+  "name": "ig_private_reply",
+  "requests": [
+    {
+      "method": "POST",
+      "url": "https://graph.test/v23.0/17841400000000000/messages",
+      "params": {
+        "message": "{\"text\": \"Assalamualaikum! Ini link-nya: https://play.test/samawi\"}",
+        "recipient": "{\"comment_id\": \"17900000000000001\"}"
+      }
+    }
+  ]
+}

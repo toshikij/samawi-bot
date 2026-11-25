@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block body %}<h1>Evergreen bank ({{ items | length }})</h1><table>
+<tr><th>#</th><th>Pillar</th><th>Hook</th><th>Key fact</th><th>Last used</th></tr>
+{% for e in items %}<tr><td>{{ e.id }}</td><td>{{ e.pillar }}</td><td>{{ e.json.hooks[e.hook_index] }}</td><td><small>{{ e.json.key_fact }}</small></td><td>{{ e.last_used_at or '—' }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">The bank is empty.</td></tr>{% endfor %}</table>{% endblock %}

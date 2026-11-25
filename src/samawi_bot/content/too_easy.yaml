@@ -1,0 +1,29 @@
+# Facts everybody already knows (spec §3.1). A draft whose key fact matches one of these is
+# rejected outright. The learner appends facts whose posts underperform on share rate.
+# Each entry: a list of normalised keyword groups; a draft matches if every group has a hit.
+seed:
+  - id: quran-114-surah
+    text: Al-Qur'an ada 114 surah
+    all_of: [["114"], ["surah", "surat"]]
+  - id: salat-5-waktu
+    text: Salat wajib 5 waktu
+    all_of: [["5", "lima"], ["waktu"], ["salat", "shalat", "sholat"]]
+  - id: fatihah-7-ayat
+    text: Al-Fatihah ada 7 ayat
+    all_of: [["7", "tujuh"], ["fatihah"]]
+  - id: rukun-islam-5
+    text: Rukun Islam ada 5
+    all_of: [["rukun islam"]]
+  - id: lailatul-qadar-ramadan
+    text: Lailatul Qadar ada di bulan Ramadan
+    all_of: [["lailatul qadar", "lailatulqadar"], ["ramadan", "ramadhan"]]
+  - id: nabi-terakhir
+    text: Nabi Muhammad nabi terakhir
+    all_of: [["nabi terakhir", "penutup para nabi", "khatamun nabiyyin"]]
+  - id: puasa-ramadan-wajib
+    text: Puasa Ramadan itu wajib
+    all_of: [["puasa"], ["ramadan", "ramadhan"], ["wajib"]]
+  - id: ayat-kursi-255
+    text: Ayat Kursi itu ayat 255
+    all_of: [["ayat kursi"], ["255"]]
+learned: []

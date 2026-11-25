@@ -1,0 +1,15 @@
+{
+  "name": "ig_token_exchange",
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://graph.test/v23.0/oauth/access_token",
+      "params": {
+        "client_id": "123",
+        "client_secret": "secret",
+        "fb_exchange_token": "IG-TOKEN",
+        "grant_type": "fb_exchange_token"
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Samawi Bot</title>
+<style>
+:root{--ink:#070B14;--panel:#0F1626;--line:#1E293F;--muted:#93A0BA;--on:#EEF2F9;--brass:#C79A55;--paper:#F6F4EE;--bad:#E58A8A;--ok:#8FD3A7}
+*{box-sizing:border-box}body{margin:0;background:var(--ink);color:var(--on);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;gap:24px;align-items:center;padding:14px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header b{color:var(--brass)}header a{color:var(--on);text-decoration:none}header a:hover{color:var(--brass)}
+.pill{padding:2px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px}.live{color:var(--ok)}.dry{color:var(--brass)}
+main{padding:24px;max-width:1200px;margin:0 auto}h1{font-size:20px;margin:0 0 16px}h2{font-size:16px;margin:28px 0 10px;color:var(--muted)}
+table{width:100%;border-collapse:collapse}td,th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--muted);font-weight:600}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.s-failed,.s-FAIL{color:var(--bad)}.s-ok,.s-published,.s-ready{color:var(--ok)}.s-fallback,.s-skipped,.s-dry_run{color:var(--brass)}
+button{font:inherit;padding:8px 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--on);cursor:pointer}
+button.danger{background:#5b1d22;border-color:#8a2b33}button:hover{border-color:var(--brass)}
+.thumbs{display:flex;gap:6px;overflow-x:auto}.thumbs img{height:150px;border-radius:6px}
+small,.muted{color:var(--muted)}pre{white-space:pre-wrap;margin:0;font-size:13px}
+</style></head><body>
+<header><b>Samawi Bot</b><a href="{{ base }}/">Status</a><a href="{{ base }}/queue">Queue</a><a href="{{ base }}/posts">Posts</a><a href="{{ base }}/evergreen">Evergreen</a>
+<span class="pill {{ 'live' if live else 'dry' }}">{{ 'LIVE' if live else 'DRY RUN' }}</span><span class="pill">{{ mode }}</span></header>
+<main>{% block body %}{% endblock %}</main></body></html>

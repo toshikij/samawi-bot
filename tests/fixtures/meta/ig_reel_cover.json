@@ -1,0 +1,44 @@
+{
+  "name": "ig_reel_cover",
+  "requests": [
+    {
+      "method": "POST",
+      "url": "https://graph.test/v23.0/17841400000000000/media",
+      "params": {
+        "caption": "Reel caption",
+        "cover_url": "https://cdn.test/cover.png",
+        "media_type": "REELS",
+        "share_to_feed": "true",
+        "video_url": "https://cdn.test/reel.mp4"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://graph.test/v23.0/ig_c1",
+      "params": {
+        "fields": "status_code,status"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://graph.test/v23.0/ig_c1",
+      "params": {
+        "fields": "status_code,status"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://graph.test/v23.0/17841400000000000/media_publish",
+      "params": {
+        "creation_id": "ig_c1"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://graph.test/v23.0/ig_m2",
+      "params": {
+        "fields": "permalink"
+      }
+    }
+  ]
+}

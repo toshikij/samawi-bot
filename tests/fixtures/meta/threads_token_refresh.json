@@ -1,0 +1,12 @@
+{
+  "name": "threads_token_refresh",
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://threads.test/refresh_access_token",
+      "params": {
+        "grant_type": "th_refresh_token"
+      }
+    }
+  ]
+}

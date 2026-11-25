@@ -1,0 +1,86 @@
+{
+  "name": "ig_carousel_2",
+  "requests": [
+    {
+      "method": "POST",
+      "url": "https://graph.test/v23.0/17841400000000000/media",
+      "params": {
+        "image_url": "https://cdn.test/posts/2026-11-26/siang_feed/01.png",
+        "is_carousel_item": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://graph.test/v23.0/ig_c1",
+      "params": {
+        "fields": "status_code,status"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://graph.test/v23.0/ig_c1",
+      "params": {
+        "fields": "status_code,status"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://graph.test/v23.0/17841400000000000/media",
+      "params": {
+        "image_url": "https://cdn.test/posts/2026-11-26/siang_feed/02.png",
+        "is_carousel_item": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://graph.test/v23.0/ig_c2",
+      "params": {
+        "fields": "status_code,status"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://graph.test/v23.0/ig_c2",
+      "params": {
+        "fields": "status_code,status"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://graph.test/v23.0/17841400000000000/media",
+      "params": {
+        "caption": "Caption #samawi",
+        "children": "ig_c1,ig_c2",
+        "media_type": "CAROUSEL"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://graph.test/v23.0/ig_c3",
+      "params": {
+        "fields": "status_code,status"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://graph.test/v23.0/ig_c3",
+      "params": {
+        "fields": "status_code,status"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://graph.test/v23.0/17841400000000000/media_publish",
+      "params": {
+        "creation_id": "ig_c3"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://graph.test/v23.0/ig_m4",
+      "params": {
+        "fields": "permalink"
+      }
+    }
+  ]
+}

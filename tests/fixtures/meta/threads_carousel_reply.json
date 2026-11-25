@@ -1,0 +1,111 @@
+{
+  "name": "threads_carousel_reply",
+  "requests": [
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads",
+      "params": {
+        "media_type": "TEXT",
+        "text": "Halo"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c1",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c1",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads_publish",
+      "params": {
+        "creation_id": "threads_c1"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads",
+      "params": {
+        "image_url": "https://cdn.test/posts/2026-11-26/siang_feed/01.png",
+        "is_carousel_item": "true",
+        "media_type": "IMAGE"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c3",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c3",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads",
+      "params": {
+        "image_url": "https://cdn.test/posts/2026-11-26/siang_feed/02.png",
+        "is_carousel_item": "true",
+        "media_type": "IMAGE"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c4",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c4",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads",
+      "params": {
+        "children": "threads_c3,threads_c4",
+        "media_type": "CAROUSEL",
+        "reply_to_id": "threads_m2",
+        "text": "Gambar"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c5",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://threads.test/v1.0/threads_c5",
+      "params": {
+        "fields": "status,error_message"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://threads.test/v1.0/2600000000000000/threads_publish",
+      "params": {
+        "creation_id": "threads_c5"
+      }
+    }
+  ]
+}

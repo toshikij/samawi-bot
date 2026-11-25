@@ -1,0 +1,143 @@
+[
+  {
+    "id": "harian",
+    "title": "Dzikir Harian",
+    "description": "Dzikir pagi, petang, dan seputar tidur.",
+    "tier": "free",
+    "chapters": [
+      {
+        "id": "harian.bangun",
+        "title": "Ketika bangun tidur",
+        "subtitle": "Dibaca sesaat setelah terjaga.",
+        "duas": [
+          {
+            "id": "harian.bangun.1",
+            "arabic": "الْحَمْدُ لِلَّهِ الَّذِي أَحْيَانَا بَعْدَ مَا أَمَاتَنَا وَإِلَيْهِ النُّشُورُ",
+            "latin": "Alhamdulillaahil-ladzii ahyaanaa ba'da maa amaatanaa wa ilaihin-nusyuur.",
+            "indonesian": "Segala puji bagi Allah yang menghidupkan kami setelah mematikan kami, dan kepada-Nya kami dikembalikan.",
+            "reference": "HR. Bukhari 6312",
+            "provenance": "Diperiksa 2026-07-22 terhadap sumber hadis yang dikutip. Terjemahan Indonesia oleh Samawi.",
+            "needsReview": false
+          }
+        ]
+      },
+      {
+        "id": "harian.pagi",
+        "title": "Dzikir pagi",
+        "subtitle": "Dibaca setelah Subuh hingga terbit matahari.",
+        "duas": [
+          {
+            "id": "harian.pagi.sayyidul-istighfar",
+            "arabic": "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ لَكَ بِذَنْبِي فَاغْفِرْ لِي فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ",
+            "latin": "Allaahumma anta rabbii laa ilaaha illaa anta, khalaqtanii wa anaa 'abduka, wa anaa 'alaa 'ahdika wa wa'dika mastatha'tu, a'uudzu bika min syarri maa shana'tu, abuu'u laka bini'matika 'alayya, wa abuu'u laka bidzanbii faghfir lii fa innahu laa yaghfirudz-dzunuuba illaa anta.",
+            "indonesian": "Ya Allah, Engkau Tuhanku, tiada tuhan yang berhak disembah selain Engkau. Engkau menciptakanku dan aku adalah hamba-Mu. Aku memegang perjanjian dan janji-Mu semampuku. Aku berlindung kepada-Mu dari keburukan perbuatanku. Aku mengakui nikmat-Mu atasku dan aku mengakui dosaku, maka ampunilah aku. Sesungguhnya tiada yang mengampuni dosa selain Engkau.",
+            "reference": "HR. Bukhari 6306",
+            "provenance": "Diperiksa 2026-07-22 terhadap sumber hadis yang dikutip. Terjemahan Indonesia oleh Samawi.",
+            "note": "Sayyidul Istighfar — penghulu istighfar.",
+            "needsReview": false
+          },
+          {
+            "id": "harian.pagi.tasbih-100",
+            "arabic": "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ",
+            "latin": "Subhaanallaahi wa bihamdih.",
+            "indonesian": "Maha Suci Allah dan segala puji bagi-Nya.",
+            "reference": "HR. Muslim 2691",
+            "provenance": "Diperiksa 2026-07-22 terhadap sumber hadis yang dikutip. Terjemahan Indonesia oleh Samawi.",
+            "repeat": 100,
+            "needsReview": false
+          },
+          {
+            "id": "harian.pagi.ridhitu",
+            "arabic": "رَضِيتُ بِاللَّهِ رَبًّا، وَبِالْإِسْلَامِ دِينًا، وَبِمُحَمَّدٍ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ نَبِيًّا",
+            "latin": "Radhiitu billaahi rabban, wa bil-islaami diinan, wa bi Muhammadin shallallaahu 'alaihi wa sallama nabiyyan.",
+            "indonesian": "Aku ridha Allah sebagai Tuhanku, Islam sebagai agamaku, dan Muhammad shallallahu 'alaihi wa sallam sebagai nabiku.",
+            "reference": "HR. Abu Dawud 5072; Ahmad 18967",
+            "provenance": "Diperiksa 2026-07-22 terhadap sumber hadis yang dikutip. Terjemahan Indonesia oleh Samawi.",
+            "repeat": 3,
+            "needsReview": false,
+            "note": "Sanad Abu Dawud dinilai lemah oleh Al-Albani; riwayat Ahmad menguatkannya dan menyebut tiga kali."
+          }
+        ]
+      },
+      {
+        "id": "harian.tidur",
+        "title": "Sebelum tidur",
+        "subtitle": "Dibaca ketika hendak berbaring.",
+        "duas": [
+          {
+            "id": "harian.tidur.1",
+            "arabic": "بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا",
+            "latin": "Bismika Allaahumma amuutu wa ahyaa.",
+            "indonesian": "Dengan nama-Mu ya Allah, aku mati dan aku hidup.",
+            "reference": "HR. Bukhari 6324",
+            "provenance": "Diperiksa 2026-07-22 terhadap sumber hadis yang dikutip. Terjemahan Indonesia oleh Samawi.",
+            "needsReview": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "keseharian",
+    "title": "Keseharian",
+    "description": "Dzikir seputar makan, rumah, dan perjalanan.",
+    "tier": "paid",
+    "chapters": [
+      {
+        "id": "keseharian.makan",
+        "title": "Makan & minum",
+        "duas": [
+          {
+            "id": "keseharian.makan.sebelum",
+            "arabic": "بِسْمِ اللَّهِ",
+            "latin": "Bismillaah.",
+            "indonesian": "Dengan nama Allah.",
+            "reference": "HR. Abu Dawud 3767",
+            "provenance": "Diperiksa 2026-07-22 terhadap sumber hadis yang dikutip. Terjemahan Indonesia oleh Samawi.",
+            "note": "Jika lupa di awal, bacalah: Bismillaahi awwalahu wa aakhirah.",
+            "needsReview": false
+          },
+          {
+            "id": "keseharian.makan.sesudah",
+            "arabic": "الْحَمْدُ لِلَّهِ الَّذِي أَطْعَمَنِي هَذَا الطَّعَامَ وَرَزَقَنِيهِ مِنْ غَيْرِ حَوْلٍ مِنِّي وَلَا قُوَّةٍ",
+            "latin": "Alhamdulillaahil-ladzii ath'amanii haadzath-tha'aama wa razaqaniihi min ghairi haulin minnii wa laa quwwah.",
+            "indonesian": "Segala puji bagi Allah yang telah memberiku makan ini dan memberiku rezeki tanpa daya dan kekuatan dariku.",
+            "reference": "HR. Abu Dawud 4023",
+            "provenance": "Diperiksa 2026-07-22 terhadap sumber hadis yang dikutip. Terjemahan Indonesia oleh Samawi.",
+            "needsReview": false
+          }
+        ]
+      },
+      {
+        "id": "keseharian.rumah",
+        "title": "Keluar & masuk rumah",
+        "duas": [
+          {
+            "id": "keseharian.rumah.keluar",
+            "arabic": "بِسْمِ اللَّهِ تَوَكَّلْتُ عَلَى اللَّهِ، لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ",
+            "latin": "Bismillaahi tawakkaltu 'alallaah, laa haula wa laa quwwata illaa billaah.",
+            "indonesian": "Dengan nama Allah, aku bertawakal kepada Allah. Tiada daya dan kekuatan kecuali dengan Allah.",
+            "reference": "HR. Abu Dawud 5095",
+            "provenance": "Diperiksa 2026-07-22 terhadap sumber hadis yang dikutip. Terjemahan Indonesia oleh Samawi.",
+            "needsReview": false
+          }
+        ]
+      },
+      {
+        "id": "keseharian.safar",
+        "title": "Perjalanan",
+        "duas": [
+          {
+            "id": "keseharian.safar.naik-kendaraan",
+            "arabic": "سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ، وَإِنَّا إِلَى رَبِّنَا لَمُنْقَلِبُونَ",
+            "latin": "Subhaanal-ladzii sakhkhara lanaa haadzaa wa maa kunnaa lahu muqriniin, wa innaa ilaa rabbinaa lamunqalibuun.",
+            "indonesian": "Maha Suci Allah yang telah menundukkan kendaraan ini untuk kami, padahal kami tidak mampu menguasainya. Dan sesungguhnya kepada Tuhan kami, kami akan kembali.",
+            "reference": "QS. Az-Zukhruf 13-14; HR. Muslim 1342",
+            "provenance": "Diperiksa 2026-07-22 terhadap sumber hadis yang dikutip. Terjemahan Indonesia oleh Samawi.",
+            "needsReview": false
+          }
+        ]
+      }
+    ]
+  }
+]

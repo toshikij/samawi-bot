@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block body %}<h1>Posts</h1><table>
+<tr><th>Platform</th><th>Type</th><th>Status</th><th>Hook</th><th>Reach</th><th>Saves</th><th>Shares</th><th>Follows</th><th>Link</th></tr>
+{% for p in posts %}{% set m = metrics.get(p.id) %}<tr><td>{{ p.platform }}</td><td>{{ p.media_type }}</td><td class="s-{{ p.status }}">{{ p.status }}</td>
+<td>{{ p.hook_text or '' }}<br><small class="s-failed">{{ p.error or '' }}</small></td><td>{{ m.reach if m else '' }}</td><td>{{ m.saves if m else '' }}</td><td>{{ m.shares if m else '' }}</td><td>{{ m.follows if m else '' }}</td>
+<td>{% if p.permalink %}<a href="{{ p.permalink }}" style="color:var(--brass)">open</a>{% endif %}</td></tr>
+{% else %}<tr><td colspan="9" class="muted">No posts yet.</td></tr>{% endfor %}</table>{% endblock %}

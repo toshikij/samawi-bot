@@ -264,3 +264,16 @@ def test_hook_index_none_when_other_reasons(d: Draft) -> None:
     res = decide(d, judge_report(d, tone_ok=False))
     assert res.hook_index is None
     assert res.passed is False
+
+
+def test_excluded_hooks_are_never_chosen() -> None:
+    from conftest import judge_report, load_draft
+    from samawi_bot.verify.gate import decide
+
+    d = load_draft()
+    r = judge_report(d)
+    best = decide(d, r).hook_index
+    assert best is not None
+    other = decide(d, r, {best}).hook_index
+    assert other is not None and other != best
+    assert not decide(d, r, set(range(5))).passed

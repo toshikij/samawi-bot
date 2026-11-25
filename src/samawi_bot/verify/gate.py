@@ -49,7 +49,8 @@ def validate_report(draft: Draft, report: JudgeReport) -> list[str]:
     return problems
 
 
-def decide(draft: Draft, report: JudgeReport) -> GateResult:
+def decide(draft: Draft, report: JudgeReport, excluded: frozenset[int] | set[int] = frozenset()) -> GateResult:
+    """`excluded`: hook indices the deterministic checks discarded; they can never be chosen."""
     reasons = validate_report(draft, report)
     if reasons:
         return GateResult(False, None, ["malformed judge report: " + r for r in reasons])
@@ -66,7 +67,7 @@ def decide(draft: Draft, report: JudgeReport) -> GateResult:
         reasons.append("hook is not paid off by slide 3")
     if not report.tone_ok:
         reasons.append(f"tone: {report.notes}")
-    passing = [h for h in report.hooks if _hook_ok(h)]
+    passing = [h for h in report.hooks if _hook_ok(h) and h.index not in excluded]
     if not passing:
         reasons.append(f"no hook scores ≥ {HOOK_MIN} on curiosity, specificity and payoff honesty (and ≥ {THUMB_STOP_MIN} thumb-stop)")
     best = max(passing, key=_hook_rank).index if passing else None

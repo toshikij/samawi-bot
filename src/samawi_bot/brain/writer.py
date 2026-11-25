@@ -176,7 +176,7 @@ def improve_hooks(llm: LLM, sources: Sources, first: Attempt, ctx: CheckContext)
         except LLMError as exc:
             return Attempt(candidate, checks, None, None, error=f"hook judge: {exc}")
         merged = report.model_copy(update={"hooks": scored.hooks, "notes": scored.notes or report.notes})
-        last = Attempt(candidate, checks, merged, decide(candidate, merged))
+        last = Attempt(candidate, checks, merged, decide(candidate, merged, checks.invalid_hooks))
         if last.passed:
             return last
         draft, report = candidate, merged
@@ -202,7 +202,7 @@ def attempt(llm: LLM, sources: Sources, brief: Brief, ctx: CheckContext, retry_n
         report = llm.structured(JUDGE_SYSTEM, judge_prompt(sources, draft, brief.day), JudgeReport, effort="high")
     except LLMError as exc:
         return Attempt(draft, checks, None, None, error=f"judge: {exc}")
-    result = Attempt(draft, checks, report, decide(draft, report))
+    result = Attempt(draft, checks, report, decide(draft, report, checks.invalid_hooks))
     if result.gate is not None and hooks_only_failure(result.gate):
         return improve_hooks(llm, sources, result, ctx)
     return result

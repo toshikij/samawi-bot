@@ -101,6 +101,9 @@ class CheckReport:
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     allowed_numbers: set[str] = field(default_factory=set)
+    # Hook candidates that failed a check. They are discarded (never published), not fatal: the
+    # draft can still pass with one of the remaining hooks (see verify/gate.decide).
+    invalid_hooks: set[int] = field(default_factory=set)
 
     @property
     def ok(self) -> bool:

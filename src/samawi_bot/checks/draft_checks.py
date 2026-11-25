@@ -236,7 +236,27 @@ def check_draft(draft: Draft, sources: Sources, ctx: CheckContext) -> CheckRepor
         for where, text in copy:
             if any(re_install_cta.search(f) for f in _forms(text)):
                 report.fail(f"{where}: install CTA before launch")
+    _discard_failing_hooks(report, len(draft.hooks))
     return report
+
+
+_HOOK_ERROR = re.compile(r"^hook (\d+): ")
+
+
+def _discard_failing_hooks(report: CheckReport, n_hooks: int) -> None:
+    """A hook that fails a check is discarded rather than failing the whole draft; the draft fails
+    only when no hook candidate survives. Discarded hooks are kept as warnings for the report."""
+    kept: list[str] = []
+    for error in report.errors:
+        m = _HOOK_ERROR.match(error)
+        if m is None:
+            kept.append(error)
+            continue
+        report.invalid_hooks.add(int(m[1]) - 1)
+        report.warnings.append(error)
+    report.errors = kept
+    if n_hooks and len(report.invalid_hooks) >= n_hooks:
+        report.fail("no hook candidate passes the checks")
 
 
 def uses(draft: Draft) -> Iterable[SourceRef]:

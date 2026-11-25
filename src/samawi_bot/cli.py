@@ -12,7 +12,7 @@ from typing import Any
 from .app import App, build_app
 from .config import get_settings
 
-JOBS = ("plan", "produce", "publish", "publish-due", "metrics", "learn", "comments-dm", "tokens", "healthcheck", "evergreen", "refresh-sources")
+JOBS = ("plan", "produce", "publish", "publish-due", "metrics", "learn", "comments-dm", "tokens", "healthcheck", "evergreen", "refresh-sources", "test-post")
 
 
 # HTTP client loggers print full request URLs at INFO, and Meta GET requests carry the access
@@ -53,6 +53,7 @@ def job_fn(name: str, args: argparse.Namespace) -> Callable[[App], dict[str, Any
     from .jobs.plan import refresh_sources, run_plan
     from .jobs.produce import run_produce
     from .jobs.publish import publish_due, publish_plan
+    from .jobs.test_post import run_test_post
 
     day = date.fromisoformat(args.day) if args.day else None
     table: dict[str, Callable[[App], dict[str, Any]]] = {
@@ -64,6 +65,7 @@ def job_fn(name: str, args: argparse.Namespace) -> Callable[[App], dict[str, Any
         "learn": ops.run_learn,
         "comments-dm": ops.run_comments_dm,
         "tokens": ops.run_tokens,
+        "test-post": run_test_post,
         "healthcheck": ops.run_healthcheck,
         "evergreen": lambda app: top_up(app, args.count),
         "refresh-sources": refresh_sources,

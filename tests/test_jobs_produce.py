@@ -470,3 +470,51 @@ def test_empty_bank_skips_only_the_feed_dependent_slots(make_app: Callable[..., 
     assert payload_of(app, plans["kahfi_story"].id) is not None
     subjects = [s for s, _ in app.mailer.sent]  # type: ignore[attr-defined]
     assert f"NO FEED {TODAY}" in subjects
+
+
+# ── a bank post that will not render ──────────────────────────────────────────────────────────
+
+
+def test_a_bank_post_that_fails_to_render_is_retired_and_the_next_is_used(make_app: Callable[..., App], monkeypatch: pytest.MonkeyPatch) -> None:
+    """26 Nov 2026: the only bank post overflowed at 02:00 and the error aborted every slot of the day."""
+    overflow = Overflow("comparison slide overflows: ['right-label', 'right-value']")
+    fake = FakeRender(feed_errors=[overflow])  # the first evergreen render fails
+    monkeypatch.setattr(produce, "render_feed", fake.feed)
+    monkeypatch.setattr(produce, "render_story", fake.story)
+    app = make_app(llm=FakeLLM())  # the writer fails twice: straight to the bank
+    plan_days(app, TODAY, 1)
+    broken = bank(app)
+    good = bank(app, topic="Ayat terpanjang dan pencatatan utang")
+    summary = run_produce(app, TODAY)
+    assert summary["feed"]["evergreen"] is True and summary["feed"]["topic"] == "Ayat terpanjang dan pencatatan utang"
+    with session_scope(app.db) as s:
+        assert s.get(EvergreenPost, broken).retired  # type: ignore[union-attr]
+        assert not s.get(EvergreenPost, good).retired  # type: ignore[union-attr]
+    plans = plans_by_slot(app)
+    feed = payload_of(app, plans["siang_feed"].id)
+    assert feed is not None and feed["evergreen_id"] == good
+    assert {p.status for slot, p in plans.items() if slot != "siang_feed"} == {"ready"}
+    subjects = [s for s, _ in app.mailer.sent]  # type: ignore[attr-defined]
+    assert f"EVERGREEN RETIRED {TODAY} #{broken}" in subjects
+    body = dict(app.mailer.sent)[f"EVERGREEN RETIRED {TODAY} #{broken}"]  # type: ignore[attr-defined]
+    assert "comparison slide overflows" in body and "Surah dengan dua Bismillah" in body
+
+
+def test_a_bank_where_nothing_renders_still_produces_the_standalone_slots(make_app: Callable[..., App], monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeRender(feed_errors=[Overflow("list slide overflows"), ValueError("carousel rendered to 11 slides; Instagram allows 10")])
+    monkeypatch.setattr(produce, "render_feed", fake.feed)
+    monkeypatch.setattr(produce, "render_story", fake.story)
+    app = make_app(llm=FakeLLM())
+    plan_days(app, TODAY, 1)
+    ids = [bank(app), bank(app, topic="Ayat terpanjang dan pencatatan utang")]
+    summary = run_produce(app, TODAY)
+    assert summary["feed"] == "skipped: no verified post and the evergreen bank is empty"
+    with session_scope(app.db) as s:
+        assert all(s.get(EvergreenPost, i).retired for i in ids)  # type: ignore[union-attr]
+    plans = plans_by_slot(app)
+    for name in ("siang_feed", "siang_threads", "malam_story", "malam_threads"):
+        assert plans[name].status == "failed", name
+    for name in ("subuh_story", "subuh_threads", "kahfi_story"):
+        assert payload_of(app, plans[name].id) is not None, name
+    subjects = [s for s, _ in app.mailer.sent]  # type: ignore[attr-defined]
+    assert sum(s.startswith("EVERGREEN RETIRED") for s in subjects) == 2 and f"NO FEED {TODAY}" in subjects

@@ -16,7 +16,10 @@ from samawi_bot.brain.models import Draft
 from samawi_bot.checks.rules import topic_hash
 from samawi_bot.db import session_scope
 from samawi_bot.db.models import EvergreenPost, TopicHistory
-from samawi_bot.jobs.evergreen import COOLDOWN, EVERGREEN_PILLARS, EvergreenEmpty, take, top_up
+from samawi_bot.jobs import evergreen as evergreen_mod
+from samawi_bot.jobs.content import RenderedPost
+from samawi_bot.jobs.evergreen import COOLDOWN, EVERGREEN_PILLARS, EvergreenEmpty, retire_evergreen, take, top_up
+from samawi_bot.render.renderer import Overflow
 
 T0 = datetime(2026, 9, 1, tzinfo=UTC)
 
@@ -39,6 +42,33 @@ def _rows(app: App) -> list[EvergreenPost]:
 
 
 # ── top_up ────────────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture(autouse=True)
+def render_checks(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int, str]]:
+    """Admission renders every verified bank post; tests record the calls instead of launching Chromium."""
+    calls: list[tuple[str, int, str]] = []
+
+    def fake(app: App, draft: Draft, hook: int, sky: str, prefix: str) -> RenderedPost:
+        calls.append((draft.topic, hook, prefix))
+        if "Tidak muat" in draft.topic:
+            raise Overflow("comparison slide overflows: ['right-label', 'right-value']")
+        return RenderedPost("carousel", [f"{prefix}/slide-01.png"], f"{prefix}/slide-01.png")
+
+    monkeypatch.setattr(evergreen_mod, "render_feed", fake)
+    return calls
+
+
+def test_a_verified_post_that_does_not_render_is_not_banked(make_app: Callable[..., App], render_checks: list[tuple[str, int, str]]) -> None:
+    bad = evergreen_draft(topic="Tidak muat di slide perbandingan")
+    good = evergreen_draft(topic="Pencatatan utang dalam ayat terpanjang")
+    app = make_app(llm=FakeLLM({"Draft": [bad, good], "JudgeReport": [judge_report(bad), judge_report(good)]}))
+    assert top_up(app, 2) == {"added": 1, "failed": 1}
+    assert [r.topic_hash for r in _rows(app)] == [topic_hash(good.topic)]
+    assert [c[2] for c in render_checks] == [f"evergreen/check/{topic_hash(bad.topic)}", f"evergreen/check/{topic_hash(good.topic)}"]
+    ((subject, body),) = app.mailer.sent  # type: ignore[attr-defined]
+    assert subject == "Evergreen top-up: 1 added, 1 failed"
+    assert "verified but does not render: comparison slide overflows" in body
 
 
 def test_top_up_adds_verified_posts(make_app: Callable[..., App]) -> None:
@@ -166,13 +196,34 @@ def test_take_raises_when_bank_is_empty_or_cooling(make_app: Callable[..., App])
         take(app, TODAY)
 
 
-def test_take_refuses_an_unparseable_bank_row(make_app: Callable[..., App]) -> None:
+def test_take_retires_an_unparseable_bank_row_and_never_uses_it(make_app: Callable[..., App]) -> None:
     app = make_app()
     rid = _add(app, "Rusak", T0, json={"topic": "Rusak"})
-    with pytest.raises(ValidationError):
+    with pytest.raises(EvergreenEmpty):
         take(app, TODAY)
     (row,) = _rows(app)
-    assert row.id == rid and row.last_used_at is None  # not marked as used
+    assert row.id == rid and row.last_used_at is None and row.retired  # retired, never marked as used
+    with pytest.raises(ValidationError):
+        Draft.model_validate(row.json)
+
+
+def test_take_skips_an_unparseable_row_for_the_next_good_one(make_app: Callable[..., App]) -> None:
+    app = make_app()
+    bad = _add(app, "Rusak", T0, json={"topic": "Rusak"})
+    good = _add(app, "Bismillah ganda", T0 + timedelta(days=1))
+    assert take(app, TODAY).id == good
+    rows = {r.id: r for r in _rows(app)}
+    assert rows[bad].retired and rows[bad].last_used_at is None
+    assert not rows[good].retired and rows[good].last_used_at is not None
+
+
+def test_retire_evergreen_takes_a_post_out_of_rotation(make_app: Callable[..., App]) -> None:
+    app = make_app()
+    first = _add(app, "Satu", T0)
+    second = _add(app, "Dua", T0 + timedelta(days=1))
+    retire_evergreen(app, first)
+    assert take(app, TODAY).id == second
+    assert {r.id: r.retired for r in _rows(app)} == {first: True, second: False}
 
 
 def test_dated_pillars_never_enter_the_bank() -> None:

@@ -24,7 +24,7 @@ from ..sources.hijri import islamic_date
 from ..sources.quran import parse_reference
 from ..verify.facts import prayer_times_today
 from .content import audit_sources, check_context, final_caption, final_thread, record_attempts, record_topic, render_feed, render_story
-from .evergreen import EvergreenEmpty
+from .evergreen import EvergreenEmpty, retire_evergreen
 from .evergreen import take as take_evergreen
 from .schedule import schedule_day
 
@@ -97,9 +97,23 @@ def produce_feed(app: App, plan: ContentPlan) -> tuple[Draft, int, dict[str, Any
 
 
 def _evergreen_feed(app: App, plan: ContentPlan) -> tuple[Draft, int, dict[str, Any], bool]:
-    item = take_evergreen(app, plan.date)
-    draft = Draft.model_validate(item.json)
-    rendered = render_feed(app, draft, item.hook_index, plan.sky_moment or "dzuhur", f"posts/{plan.date}/{plan.slot}-evergreen")
+    """The next bank post that renders. One that fails the render checks is retired with an alert and
+    the next is tried, so a bad bank post costs one alert, never the day; an exhausted bank raises
+    EvergreenEmpty, which run_produce turns into a dark feed with the standalone slots still produced."""
+    while True:
+        item = take_evergreen(app, plan.date)
+        draft = Draft.model_validate(item.json)
+        try:
+            rendered = render_feed(app, draft, item.hook_index, plan.sky_moment or "dzuhur", f"posts/{plan.date}/{plan.slot}-evergreen")
+        except (RenderError, ValueError, OSError) as exc:
+            retire_evergreen(app, item.id)
+            safe_send(
+                app.mailer,
+                f"EVERGREEN RETIRED {plan.date} #{item.id}",
+                f"Bank post {item.id} ({draft.topic}) did not pass the render checks, is retired, and the next one is tried.\n\n{exc}",
+            )
+            continue
+        break
     with session_scope(app.db) as s:
         row = s.get(EvergreenPost, item.id)
         assert row is not None

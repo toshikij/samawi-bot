@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any
 
+from pydantic import ValidationError
 from sqlalchemy import select
 
 from ..alerts import safe_send
@@ -20,7 +21,8 @@ from ..checks.rules import topic_hash
 from ..db import session_scope
 from ..db.models import EvergreenPost, TopicHistory
 from ..publisher.slots import WIB
-from .content import check_context
+from ..render.renderer import RenderError
+from .content import check_context, render_feed
 
 # Calendar and prayer-time posts are about a date: their facts are dated (compare/extremes/prayer/hijri,
 # which the evergreen check rejects) or tied to one year (annual), so they cannot sit in a bank of
@@ -65,6 +67,14 @@ def top_up(app: App, count: int, pillars: list[str] | None = None) -> dict[str, 
             failed += 1
             reports.append(f"{pillar}: " + attempts[-1].notes()[:600])
             continue
+        # A bank post must also render (no overflow, fonts, contrast): one that cannot is not admitted,
+        # so a fallback day never discovers it at 02:00.
+        try:
+            render_feed(app, ok.draft, ok.gate.hook_index, "dzuhur", f"evergreen/check/{topic_hash(ok.draft.topic)}")
+        except (RenderError, ValueError, OSError) as exc:
+            failed += 1
+            reports.append(f"{pillar}: verified but does not render: {exc}")
+            continue
         with session_scope(app.db) as s:
             s.add(
                 EvergreenPost(
@@ -83,17 +93,30 @@ def top_up(app: App, count: int, pillars: list[str] | None = None) -> dict[str, 
 
 
 def take(app: App, day: date) -> EvergreenPost:
-    """The least recently used bank post whose topic is not within its 60-day cooldown."""
+    """The least recently used bank post whose topic is not within its 60-day cooldown.
+
+    A row that no longer parses as a Draft is retired and skipped, never used."""
     with session_scope(app.db) as s:
         recent = {r.topic_hash for r in s.scalars(select(TopicHistory).where(TopicHistory.used_at > day - COOLDOWN))}
         candidates = s.scalars(select(EvergreenPost).where(EvergreenPost.retired.is_(False))).all()
         usable = [c for c in candidates if c.topic_hash not in recent]
-        if not usable:
-            raise EvergreenEmpty("No evergreen post is available outside its 60-day cooldown")
         usable.sort(key=lambda c: (c.last_used_at is not None, c.last_used_at or c.created_at, c.id))
-        item = usable[0]
-        item.last_used_at = app.now()
-        s.flush()
-        s.expunge(item)
-        Draft.model_validate(item.json)  # a bank row that no longer parses must not be used
-        return item
+        for item in usable:
+            try:
+                Draft.model_validate(item.json)
+            except ValidationError:
+                item.retired = True
+                continue
+            item.last_used_at = app.now()
+            s.flush()
+            s.expunge(item)
+            return item
+    raise EvergreenEmpty("No evergreen post is available outside its 60-day cooldown")
+
+
+def retire_evergreen(app: App, post_id: int) -> None:
+    """Take a bank post out of rotation for good (kept for the record, never published)."""
+    with session_scope(app.db) as s:
+        row = s.get(EvergreenPost, post_id)
+        assert row is not None
+        row.retired = True

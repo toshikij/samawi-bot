@@ -27,6 +27,10 @@ bank. Never loosen a check, threshold, blocked topic or render guard to get cont
 Jobs run as ECS Fargate tasks from EventBridge Scheduler (`infra/terraform/schedule.json`, WIB).
 `produce` (02:00) also creates one-off `at()` schedules for each prayer-anchored slot; the hourly
 `publish-due` sweep is the safety net and logs the heartbeat the dead-man alarm watches.
+`produce-retry` (02:45, 03:45) redoes a day the 02:00 run crashed or left dark (a per-day lease stops
+overlap); `bank` (10:00) keeps ≥ 30 render-checked evergreen posts. A failed fresh feed falls back to
+the bank, a bank post that will not render is retired, and the standalone slots go out regardless —
+but nothing unverified is ever published to avoid a skip.
 
 ## Switches (Terraform variables, not secrets)
 

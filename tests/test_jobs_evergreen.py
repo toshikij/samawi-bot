@@ -230,3 +230,45 @@ def test_dated_pillars_never_enter_the_bank() -> None:
     """Calendar and prayer-time posts are about a date; a bank post must publish on any day."""
     assert "kalender_hijriah" not in EVERGREEN_PILLARS and "langit_waktu_salat" not in EVERGREEN_PILLARS
     assert {"fakta_quran", "sunnah_terlupa", "doa_dzikir", "musafir", "hitung_ibadah", "sejarah_kisah"} == set(EVERGREEN_PILLARS)
+
+
+# ── maintain_bank ─────────────────────────────────────────────────────────────────────────────
+
+from samawi_bot.jobs.evergreen import EVERGREEN_LOW, EVERGREEN_TARGET, MAX_DRAFTS_PER_RUN, maintain_bank  # noqa: E402
+
+
+def test_a_full_bank_writes_nothing(make_app: Callable[..., App]) -> None:
+    app = make_app()
+    for i in range(EVERGREEN_TARGET):
+        _add(app, f"Topik {i}", T0)
+    assert maintain_bank(app) == {"reserve": EVERGREEN_TARGET, "added": 0}
+    assert app.llm_factory().calls == []  # type: ignore[attr-defined]
+
+
+def test_a_short_bank_writes_twice_the_gap(make_app: Callable[..., App], monkeypatch: pytest.MonkeyPatch) -> None:
+    app = make_app()
+    for i in range(EVERGREEN_TARGET - 3):
+        _add(app, f"Topik {i}", T0)
+    asked: list[int] = []
+
+    def fake_top_up(app: App, count: int, pillars: list[str] | None = None) -> dict[str, Any]:
+        asked.append(count)
+        for j in range(2):
+            _add(app, f"Baru {j}", T0)
+        return {"added": 2, "failed": count - 2}
+
+    monkeypatch.setattr(evergreen_mod, "top_up", fake_top_up)
+    assert maintain_bank(app) == {"reserve": EVERGREEN_TARGET - 1, "added": 2, "failed": 4}
+    assert asked == [6] and app.mailer.sent == []  # type: ignore[attr-defined]
+
+
+def test_an_empty_bank_is_capped_and_alerts_while_still_low(make_app: Callable[..., App], monkeypatch: pytest.MonkeyPatch) -> None:
+    app = make_app()
+    _add(app, "Satu-satunya", T0)
+    _add(app, "Pensiun", T0, retired=True)  # retired posts do not count
+    asked: list[int] = []
+    monkeypatch.setattr(evergreen_mod, "top_up", lambda app, count, pillars=None: asked.append(count) or {"added": 0, "failed": count})
+    assert maintain_bank(app)["reserve"] == 1
+    assert asked == [MAX_DRAFTS_PER_RUN]
+    ((subject, body),) = app.mailer.sent  # type: ignore[attr-defined]
+    assert subject == "LOW BANK: 1 evergreen posts" and f"alert below {EVERGREEN_LOW}" in body

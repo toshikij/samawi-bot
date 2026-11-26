@@ -20,6 +20,8 @@ from samawi_bot.jobs.runner import JobSkipped
 JOB_TARGETS = [
     ("plan", "samawi_bot.jobs.plan", "run_plan"),
     ("produce", "samawi_bot.jobs.produce", "run_produce"),
+    ("produce-retry", "samawi_bot.jobs.produce", "run_produce"),
+    ("bank", "samawi_bot.jobs.evergreen", "maintain_bank"),
     ("publish", "samawi_bot.jobs.publish", "publish_due"),
     ("publish-due", "samawi_bot.jobs.publish", "publish_due"),
     ("metrics", "samawi_bot.jobs.ops", "run_metrics"),
@@ -35,6 +37,15 @@ JOB_TARGETS = [
 
 def test_every_job_is_routed() -> None:
     assert sorted(j for j, _, _ in JOB_TARGETS) == sorted(cli.JOBS)
+
+
+def test_every_scheduled_job_exists() -> None:
+    """EventBridge runs `run <key>` for each schedule.json key: a key the CLI does not know would fail nightly."""
+    import json
+
+    schedule = json.loads((Path(__file__).parents[1] / "infra/terraform/schedule.json").read_text())
+    assert set(schedule) <= set(cli.JOBS)
+    assert schedule["produce-retry"]["cron"] == "cron(45 2,3 * * ? *)" and schedule["bank"]["cron"] == "cron(0 10 * * ? *)"
 
 
 @pytest.mark.parametrize(("job", "module", "attr"), JOB_TARGETS)

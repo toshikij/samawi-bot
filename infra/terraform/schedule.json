@@ -1,6 +1,8 @@
 {
   "plan": { "cron": "cron(0 20 ? * SUN *)", "label": "Plan next 7 days, refresh sources, top up evergreen (Sun 20:00)" },
   "produce": { "cron": "cron(0 2 * * ? *)", "label": "Write → check → judge → render the day (02:00)" },
+  "produce-retry": { "cron": "cron(45 2,3 * * ? *)", "label": "Redo the day if 02:00 did not finish it (02:45, 03:45)" },
+  "bank": { "cron": "cron(0 10 * * ? *)", "label": "Keep the evergreen bank at 30 verified posts (10:00)" },
   "publish-due": { "cron": "cron(7 * * * ? *)", "label": "Safety-net publish sweep + heartbeat (hourly :07)" },
   "metrics": { "cron": "cron(15 0/6 * * ? *)", "label": "Insights at 6h/24h/72h/7d (every 6 h)" },
   "learn": { "cron": "cron(0 21 ? * SUN *)", "label": "Weekly re-weight and report (Sun 21:00)" },

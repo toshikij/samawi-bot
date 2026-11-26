@@ -12,7 +12,22 @@ from typing import Any
 from .app import App, build_app
 from .config import get_settings
 
-JOBS = ("plan", "produce", "publish", "publish-due", "metrics", "learn", "comments-dm", "tokens", "healthcheck", "evergreen", "refresh-sources", "test-post")
+JOBS = (
+    "plan",
+    "produce",
+    "produce-retry",
+    "bank",
+    "publish",
+    "publish-due",
+    "metrics",
+    "learn",
+    "comments-dm",
+    "tokens",
+    "healthcheck",
+    "evergreen",
+    "refresh-sources",
+    "test-post",
+)
 
 
 # HTTP client loggers print full request URLs at INFO, and Meta GET requests carry the access
@@ -49,7 +64,7 @@ def persist_state(app: App) -> None:
 
 def job_fn(name: str, args: argparse.Namespace) -> Callable[[App], dict[str, Any]]:
     from .jobs import ops
-    from .jobs.evergreen import top_up
+    from .jobs.evergreen import maintain_bank, top_up
     from .jobs.plan import refresh_sources, run_plan
     from .jobs.produce import run_produce
     from .jobs.publish import publish_due, publish_plan
@@ -59,6 +74,9 @@ def job_fn(name: str, args: argparse.Namespace) -> Callable[[App], dict[str, Any
     table: dict[str, Callable[[App], dict[str, Any]]] = {
         "plan": run_plan,
         "produce": lambda app: run_produce(app, day),
+        # The same job again at 02:45 and 03:45: a no-op once the day is produced, a second and third
+        # chance when the 02:00 run crashed, timed out or left the feed dark.
+        "produce-retry": lambda app: run_produce(app, day),
         "publish": lambda app: publish_plan(app, args.plan_id) if args.plan_id else publish_due(app),
         "publish-due": publish_due,
         "metrics": ops.run_metrics,
@@ -68,6 +86,7 @@ def job_fn(name: str, args: argparse.Namespace) -> Callable[[App], dict[str, Any
         "test-post": run_test_post,
         "healthcheck": ops.run_healthcheck,
         "evergreen": lambda app: top_up(app, args.count),
+        "bank": maintain_bank,
         "refresh-sources": refresh_sources,
     }
     return table[name]

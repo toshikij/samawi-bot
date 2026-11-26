@@ -6,7 +6,7 @@ is emailed. A failed draft is never published (spec §6.3).
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from sqlalchemy import select
@@ -16,15 +16,16 @@ from ..app import App
 from ..brain.models import Draft, SourceRef
 from ..brain.writer import Brief, write_verified
 from ..db import session_scope
-from ..db.models import ContentPlan, DraftRow, EvergreenPost
+from ..db.models import ContentPlan, DraftRow, EvergreenPost, Flag
 from ..publisher.slots import WIB
 from ..render.compose import ayat_of_day, story_kahfi, story_malam, story_subuh
 from ..render.renderer import RenderError
 from ..sources.hijri import islamic_date
 from ..sources.quran import parse_reference
+from ..timeutil import utc
 from ..verify.facts import prayer_times_today
 from .content import audit_sources, check_context, final_caption, final_thread, record_attempts, record_topic, render_feed, render_story
-from .evergreen import EvergreenEmpty
+from .evergreen import EvergreenEmpty, retire_evergreen
 from .evergreen import take as take_evergreen
 from .schedule import schedule_day
 
@@ -97,9 +98,23 @@ def produce_feed(app: App, plan: ContentPlan) -> tuple[Draft, int, dict[str, Any
 
 
 def _evergreen_feed(app: App, plan: ContentPlan) -> tuple[Draft, int, dict[str, Any], bool]:
-    item = take_evergreen(app, plan.date)
-    draft = Draft.model_validate(item.json)
-    rendered = render_feed(app, draft, item.hook_index, plan.sky_moment or "dzuhur", f"posts/{plan.date}/{plan.slot}-evergreen")
+    """The next bank post that renders. One that fails the render checks is retired with an alert and
+    the next is tried, so a bad bank post costs one alert, never the day; an exhausted bank raises
+    EvergreenEmpty, which run_produce turns into a dark feed with the standalone slots still produced."""
+    while True:
+        item = take_evergreen(app, plan.date)
+        draft = Draft.model_validate(item.json)
+        try:
+            rendered = render_feed(app, draft, item.hook_index, plan.sky_moment or "dzuhur", f"posts/{plan.date}/{plan.slot}-evergreen")
+        except (RenderError, ValueError, OSError) as exc:
+            retire_evergreen(app, item.id)
+            safe_send(
+                app.mailer,
+                f"EVERGREEN RETIRED {plan.date} #{item.id}",
+                f"Bank post {item.id} ({draft.topic}) did not pass the render checks, is retired, and the next one is tried.\n\n{exc}",
+            )
+            continue
+        break
     with session_scope(app.db) as s:
         row = s.get(EvergreenPost, item.id)
         assert row is not None
@@ -180,13 +195,63 @@ def run_produce(app: App, day: date | None = None) -> dict[str, Any]:
     if feed_plan.status in ("ready", "published", "fallback"):
         summary["feed"] = "already produced"
         return summary
-    aod = ayat_of_day(day.toordinal())
+    # A feed left "failed" (dark) or "planned" (crashed run) is produced again by produce-retry.
+    if not _take_lease(app, day):
+        summary["feed"] = "in progress in another run"
+        return summary
     try:
-        draft, hook, feed, from_evergreen = produce_feed(app, feed_plan)
+        return _produce_day(app, plans, day, summary)
+    finally:
+        _release_lease(app, day)
+
+
+PRODUCE_LEASE = timedelta(minutes=60)  # longer than a slow run, shorter than the gap to the 03:45 retry
+
+
+def _lease_name(day: date) -> str:
+    return f"produce:{day.isoformat()}"
+
+
+def _take_lease(app: App, day: date) -> bool:
+    """One produce run per day at a time: a retry never overlaps a run that is still writing."""
+    now = app.now()
+    with session_scope(app.db) as s:
+        flag = s.get(Flag, _lease_name(day))
+        if flag is not None and flag.value == "running" and now - utc(flag.updated_at) < PRODUCE_LEASE:
+            return False
+        if flag is None:
+            s.add(Flag(name=_lease_name(day), value="running", updated_at=now, updated_by="produce"))
+        else:
+            flag.value, flag.updated_at, flag.updated_by = "running", now, "produce"
+    return True
+
+
+def _release_lease(app: App, day: date) -> None:
+    with session_scope(app.db) as s:
+        flag = s.get(Flag, _lease_name(day))
+        assert flag is not None  # _take_lease created it
+        flag.value, flag.updated_at = "done", app.now()
+
+
+def _produce_day(app: App, plans: dict[str, ContentPlan], day: date, summary: dict[str, Any]) -> dict[str, Any]:
+    feed_plan = plans["siang_feed"]
+    aod = ayat_of_day(day.toordinal())
+    result: tuple[Draft, int, dict[str, Any], bool] | None = None
+    try:
+        result = produce_feed(app, feed_plan)
     except EvergreenEmpty as exc:
-        # No verified feed post and no bank post: the feed and everything built from it stay dark,
-        # but the slots that stand on their own (ayat of the day, Kahfi reminder) still go out.
-        safe_send(app.mailer, f"NO FEED {day}", f"{exc}. The feed, its Threads chain and the evening slots are skipped today.")
+        reason = str(exc)
+    except Exception as exc:  # noqa: BLE001 - an outage or a bug in the fresh path must not take the day down
+        safe_send(app.mailer, f"FEED ERROR {day}", f"Producing the {day} feed raised {type(exc).__name__}: {exc}\n\nFalling back to the evergreen bank.")
+        try:
+            result = _evergreen_feed(app, feed_plan)
+        except Exception as exc2:  # noqa: BLE001 - the standalone slots still go out below
+            reason = f"{type(exc2).__name__}: {exc2}"
+    if result is None:
+        # No verified feed post and no usable bank post: the feed and everything built from it stay dark,
+        # but the slots that stand on their own (ayat of the day, Kahfi reminder) still go out. The
+        # produce-retry runs try the feed again.
+        safe_send(app.mailer, f"NO FEED {day}", f"{reason}. The feed, its Threads chain and the evening slots are skipped unless a retry succeeds.")
         for name in ("siang_feed", "siang_threads", "malam_story", "malam_threads"):
             if name in plans:
                 _mark_failed(app, plans[name].id)
@@ -194,6 +259,7 @@ def run_produce(app: App, day: date | None = None) -> dict[str, Any]:
         _standalone_slots(app, plans, day, aod, None)
         summary["scheduled"] = schedule_day(app, day)
         return summary
+    draft, hook, feed, from_evergreen = result
     _save_payload(app, feed_plan.id, feed, "fallback" if from_evergreen else "ready")
     summary["feed"] = {"evergreen": from_evergreen, "topic": draft.topic, "hook": draft.hooks[hook], "media": len(feed["media"])}
     if "siang_threads" in plans:

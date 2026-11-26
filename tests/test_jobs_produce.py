@@ -470,3 +470,157 @@ def test_empty_bank_skips_only_the_feed_dependent_slots(make_app: Callable[..., 
     assert payload_of(app, plans["kahfi_story"].id) is not None
     subjects = [s for s, _ in app.mailer.sent]  # type: ignore[attr-defined]
     assert f"NO FEED {TODAY}" in subjects
+
+
+# ── a bank post that will not render ──────────────────────────────────────────────────────────
+
+
+def test_a_bank_post_that_fails_to_render_is_retired_and_the_next_is_used(make_app: Callable[..., App], monkeypatch: pytest.MonkeyPatch) -> None:
+    """26 Nov 2026: the only bank post overflowed at 02:00 and the error aborted every slot of the day."""
+    overflow = Overflow("comparison slide overflows: ['right-label', 'right-value']")
+    fake = FakeRender(feed_errors=[overflow])  # the first evergreen render fails
+    monkeypatch.setattr(produce, "render_feed", fake.feed)
+    monkeypatch.setattr(produce, "render_story", fake.story)
+    app = make_app(llm=FakeLLM())  # the writer fails twice: straight to the bank
+    plan_days(app, TODAY, 1)
+    broken = bank(app)
+    good = bank(app, topic="Ayat terpanjang dan pencatatan utang")
+    summary = run_produce(app, TODAY)
+    assert summary["feed"]["evergreen"] is True and summary["feed"]["topic"] == "Ayat terpanjang dan pencatatan utang"
+    with session_scope(app.db) as s:
+        assert s.get(EvergreenPost, broken).retired  # type: ignore[union-attr]
+        assert not s.get(EvergreenPost, good).retired  # type: ignore[union-attr]
+    plans = plans_by_slot(app)
+    feed = payload_of(app, plans["siang_feed"].id)
+    assert feed is not None and feed["evergreen_id"] == good
+    assert {p.status for slot, p in plans.items() if slot != "siang_feed"} == {"ready"}
+    subjects = [s for s, _ in app.mailer.sent]  # type: ignore[attr-defined]
+    assert f"EVERGREEN RETIRED {TODAY} #{broken}" in subjects
+    body = dict(app.mailer.sent)[f"EVERGREEN RETIRED {TODAY} #{broken}"]  # type: ignore[attr-defined]
+    assert "comparison slide overflows" in body and "Surah dengan dua Bismillah" in body
+
+
+def test_a_bank_where_nothing_renders_still_produces_the_standalone_slots(make_app: Callable[..., App], monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeRender(feed_errors=[Overflow("list slide overflows"), ValueError("carousel rendered to 11 slides; Instagram allows 10")])
+    monkeypatch.setattr(produce, "render_feed", fake.feed)
+    monkeypatch.setattr(produce, "render_story", fake.story)
+    app = make_app(llm=FakeLLM())
+    plan_days(app, TODAY, 1)
+    ids = [bank(app), bank(app, topic="Ayat terpanjang dan pencatatan utang")]
+    summary = run_produce(app, TODAY)
+    assert summary["feed"] == "skipped: no verified post and the evergreen bank is empty"
+    with session_scope(app.db) as s:
+        assert all(s.get(EvergreenPost, i).retired for i in ids)  # type: ignore[union-attr]
+    plans = plans_by_slot(app)
+    for name in ("siang_feed", "siang_threads", "malam_story", "malam_threads"):
+        assert plans[name].status == "failed", name
+    for name in ("subuh_story", "subuh_threads", "kahfi_story"):
+        assert payload_of(app, plans[name].id) is not None, name
+    subjects = [s for s, _ in app.mailer.sent]  # type: ignore[attr-defined]
+    assert sum(s.startswith("EVERGREEN RETIRED") for s in subjects) == 2 and f"NO FEED {TODAY}" in subjects
+
+
+# ── never lose a day: retries, the lease, and errors outside the verified path ────────────────
+
+from samawi_bot.db.models import Flag  # noqa: E402
+
+
+def _flag(app: App, day: date = TODAY) -> Flag | None:
+    with session_scope(app.db) as s:
+        row = s.get(Flag, f"produce:{day.isoformat()}")
+        if row is not None:
+            s.expunge(row)
+        return row
+
+
+def test_a_retry_after_a_finished_day_does_nothing(make_app: Callable[..., App], fake_render: FakeRender) -> None:
+    app = make_app(llm=good_llm())
+    plan_days(app, TODAY, 1)
+    run_produce(app, TODAY)
+    calls = len(app.llm_factory().calls)  # type: ignore[attr-defined]
+    assert run_produce(app, TODAY)["feed"] == "already produced"
+    assert len(app.llm_factory().calls) == calls  # type: ignore[attr-defined]
+    flag = _flag(app)
+    assert flag is not None and flag.value == "done"
+
+
+def test_a_retry_brings_back_a_dark_day(make_app: Callable[..., App], fake_render: FakeRender) -> None:
+    """02:00: the writer fails and the bank is empty. 02:45: a bank post exists, so the feed and evening go out."""
+    app = make_app(llm=FakeLLM())
+    plan_days(app, TODAY, 1)
+    assert run_produce(app, TODAY)["feed"] == "skipped: no verified post and the evergreen bank is empty"
+    eid = bank(app)
+    summary = run_produce(app, TODAY)
+    assert summary["feed"]["evergreen"] is True
+    plans = plans_by_slot(app)
+    assert plans["siang_feed"].status == "fallback"
+    assert {p.status for slot, p in plans.items() if slot != "siang_feed"} == {"ready"}
+    feed = payload_of(app, plans["siang_feed"].id)
+    assert feed is not None and feed["evergreen_id"] == eid
+
+
+def test_a_run_still_holding_the_lease_blocks_a_retry(make_app: Callable[..., App], fake_render: FakeRender, clock: Any) -> None:
+    app = make_app(llm=good_llm())
+    plan_days(app, TODAY, 1)
+    with session_scope(app.db) as s:
+        s.add(Flag(name=f"produce:{TODAY.isoformat()}", value="running", updated_at=clock.now - timedelta(minutes=45), updated_by="produce"))
+    assert run_produce(app, TODAY)["feed"] == "in progress in another run"
+    assert plans_by_slot(app)["siang_feed"].status == "planned"
+    clock.now += timedelta(minutes=20)  # 65 minutes: the first run died; its lease has expired
+    assert run_produce(app, TODAY)["feed"]["evergreen"] is False
+    flag = _flag(app)
+    assert flag is not None and flag.value == "done"
+
+
+def test_an_unexpected_error_in_the_fresh_path_falls_back_to_the_bank(
+    make_app: Callable[..., App], fake_render: FakeRender, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("database connection reset")
+
+    monkeypatch.setattr(produce, "write_verified", boom)
+    app = make_app(llm=good_llm())
+    plan_days(app, TODAY, 1)
+    eid = bank(app)
+    summary = run_produce(app, TODAY)
+    assert summary["feed"]["evergreen"] is True
+    feed = payload_of(app, plans_by_slot(app)["siang_feed"].id)
+    assert feed is not None and feed["evergreen_id"] == eid
+    subjects = dict(app.mailer.sent)  # type: ignore[attr-defined]
+    assert "RuntimeError: database connection reset" in subjects[f"FEED ERROR {TODAY}"]
+
+
+def test_errors_in_both_paths_still_produce_the_standalone_slots_and_release_the_lease(
+    make_app: Callable[..., App], fake_render: FakeRender, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("down")
+
+    monkeypatch.setattr(produce, "write_verified", boom)
+    monkeypatch.setattr(produce, "take_evergreen", boom)
+    app = make_app(llm=good_llm())
+    plan_days(app, TODAY, 1)
+    summary = run_produce(app, TODAY)
+    assert summary["feed"] == "skipped: no verified post and the evergreen bank is empty"
+    plans = plans_by_slot(app)
+    for name in ("subuh_story", "subuh_threads", "kahfi_story"):
+        assert payload_of(app, plans[name].id) is not None, name
+    subjects = dict(app.mailer.sent)  # type: ignore[attr-defined]
+    assert "RuntimeError: down" in subjects[f"NO FEED {TODAY}"] and "unless a retry succeeds" in subjects[f"NO FEED {TODAY}"]
+    flag = _flag(app)
+    assert flag is not None and flag.value == "done"
+
+
+def test_the_lease_is_released_even_when_a_standalone_slot_crashes(
+    make_app: Callable[..., App], fake_render: FakeRender, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("schedule API down")
+
+    monkeypatch.setattr(produce, "schedule_day", boom)
+    app = make_app(llm=good_llm())
+    plan_days(app, TODAY, 1)
+    with pytest.raises(RuntimeError):
+        run_produce(app, TODAY)
+    flag = _flag(app)
+    assert flag is not None and flag.value == "done"

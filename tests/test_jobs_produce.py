@@ -624,3 +624,17 @@ def test_the_lease_is_released_even_when_a_standalone_slot_crashes(
         run_produce(app, TODAY)
     flag = _flag(app)
     assert flag is not None and flag.value == "done"
+
+
+def test_an_empty_credit_balance_is_named_and_the_day_still_publishes_from_the_bank(make_app: Callable[..., App], fake_render: FakeRender) -> None:
+    """27 Nov 2026: the account ran out of credit; the day posted from the bank but no alert said why."""
+    from samawi_bot.alerts import CREDIT_SUBJECT
+    from samawi_bot.brain.llm import OUT_OF_CREDIT, LLMOutOfCredit
+
+    app = make_app(llm=FakeLLM({"Draft": [LLMOutOfCredit(OUT_OF_CREDIT), LLMOutOfCredit(OUT_OF_CREDIT)]}))
+    plan_days(app, TODAY, 1)
+    bank(app)
+    assert run_produce(app, TODAY)["feed"]["evergreen"] is True
+    subjects = [s for s, _ in app.mailer.sent]  # type: ignore[attr-defined]
+    assert subjects == [CREDIT_SUBJECT, f"FALLBACK {TODAY} feed → evergreen"]
+    assert "Plans & Billing" in dict(app.mailer.sent)[CREDIT_SUBJECT]  # type: ignore[attr-defined]

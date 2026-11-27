@@ -272,3 +272,22 @@ def test_an_empty_bank_is_capped_and_alerts_while_still_low(make_app: Callable[.
     assert asked == [MAX_DRAFTS_PER_RUN]
     ((subject, body),) = app.mailer.sent  # type: ignore[attr-defined]
     assert subject == "LOW BANK: 1 evergreen posts" and f"alert below {EVERGREEN_LOW}" in body
+
+
+def test_top_up_stops_at_an_empty_credit_balance_and_says_so(make_app: Callable[..., App]) -> None:
+    from samawi_bot.alerts import CREDIT_SUBJECT
+    from samawi_bot.brain.llm import OUT_OF_CREDIT, LLMOutOfCredit
+
+    app = make_app(llm=FakeLLM({"Draft": [LLMOutOfCredit(OUT_OF_CREDIT)] * 10}))
+    assert top_up(app, 5) == {"added": 0, "failed": 1}  # stops after the first refusal, not 5 × 2 calls
+    assert [c[0] for c in app.llm_factory().calls] == ["Draft", "Draft"]  # type: ignore[attr-defined]
+    subjects = [s for s, _ in app.mailer.sent]  # type: ignore[attr-defined]
+    assert subjects == [CREDIT_SUBJECT, "Evergreen top-up: 0 added, 1 failed"]
+
+
+def test_ordinary_failures_do_not_raise_the_credit_alert(make_app: Callable[..., App]) -> None:
+    from samawi_bot.alerts import CREDIT_SUBJECT
+
+    app = make_app(llm=FakeLLM())
+    top_up(app, 2)
+    assert CREDIT_SUBJECT not in [s for s, _ in app.mailer.sent]  # type: ignore[attr-defined]

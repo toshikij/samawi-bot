@@ -246,7 +246,7 @@ def improve_hooks(llm: LLM, sources: Sources, first: Attempt, ctx: CheckContext)
     for _ in range(HOOK_ROUNDS):
         keep = near_misses(draft, report, excluded)
         try:
-            new = llm.structured(HOOK_SYSTEM, hook_prompt(draft, report, keep), HookSet, effort="high").hooks
+            new = llm.structured(HOOK_SYSTEM, hook_prompt(draft, report, keep), HookSet, effort="high", role="writer").hooks
         except LLMError as exc:
             return Attempt(last.draft, last.checks, last.judge, last.gate, error=f"hook writer: {exc}")
         candidate = draft.model_copy(update={"hooks": combine_hooks(draft, keep, new)})
@@ -277,7 +277,7 @@ def attempt(llm: LLM, sources: Sources, brief: Brief, ctx: CheckContext, retry_n
             "dan jangan menambah klaim baru tanpa sumber:\n" + previous.model_dump_json()
         )
     try:
-        draft = llm.structured(WRITER_SYSTEM, prompt, Draft, effort="high")
+        draft = llm.structured(WRITER_SYSTEM, prompt, Draft, effort="high", role="writer")
     except LLMError as exc:
         return Attempt(None, None, None, None, error=f"writer: {exc}")
     checks = check_draft(draft, sources, ctx)

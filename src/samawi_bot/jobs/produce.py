@@ -11,7 +11,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from ..alerts import safe_send
+from ..alerts import alert_if_out_of_credit, safe_send
 from ..app import App
 from ..brain.models import Draft, SourceRef
 from ..brain.writer import Brief, write_verified
@@ -93,6 +93,7 @@ def produce_feed(app: App, plan: ContentPlan) -> tuple[Draft, int, dict[str, Any
                 return draft, hook, feed, False
         if not failure:
             failure = "\n\n".join(f"Attempt {i}:\n{a.notes()}" for i, a in enumerate(attempts, 1))
+            alert_if_out_of_credit(app.mailer, [a.error for a in attempts], f"The {day} feed")
     safe_send(app.mailer, f"FALLBACK {day} feed → evergreen", f"The {day} feed post failed verification and will publish from the evergreen bank.\n\n{failure}")
     return _evergreen_feed(app, plan)
 

@@ -88,7 +88,7 @@ def test_build_app_s3_ses_scheduler(aws: None) -> None:
         assert app.scheduler is not None and app.scheduler.meta.service_model.service_name == "scheduler"
         assert app.scheduler.meta.region_name == REGION
         llm = app.llm_factory()
-        assert isinstance(llm, ClaudeLLM) and llm.model == "claude-test-model"
+        assert isinstance(llm, ClaudeLLM) and llm.model == "claude-test-model" and llm.writer_model == "claude-haiku-5-5"
     finally:
         app.http.close()
 
@@ -162,7 +162,8 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_settings_defaults(clean_env: None) -> None:
     s = Settings(_env_file=None)  # type: ignore[call-arg]
-    assert s.claude_model == "claude-opus-5-5"
+    assert s.claude_model == "claude-opus-5-5"  # the judges
+    assert s.claude_writer_model == "claude-haiku-5-5"  # the writer, checked by the judges
     assert s.anthropic_api_key == ""
     assert s.launch_mode is LaunchMode.PRELAUNCH
     assert s.translation_mode is TranslationMode.KEMENAG

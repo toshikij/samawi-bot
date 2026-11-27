@@ -405,6 +405,14 @@ def test_kept_hooks_never_include_ones_the_checks_discarded(sources: Sources, ct
     assert result.draft.hooks[:KEEP_BEST] == [d.hooks[1], d.hooks[2]]
 
 
+def test_only_drafting_runs_on_the_writer_model(sources: Sources, ctx: CheckContext) -> None:
+    """Draft and hook rewrites are writer calls; the judge and hook judge always run on the checking model."""
+    d = load_draft()
+    llm = FakeLLM({"Draft": [d], "JudgeReport": [low_hooks(d)], "HookSet": [HookSet(hooks=NEW_HOOKS)], "HookReport": [hook_scores(True)]})
+    write_verified(llm, sources, brief(), ctx)
+    assert llm.roles == [("Draft", "writer"), ("JudgeReport", "judge"), ("HookSet", "writer"), ("HookReport", "judge")]
+
+
 def test_hook_prompts_render() -> None:
     d = load_draft()
     assert "[0] " + d.hooks[0] in hook_judge_prompt(d)

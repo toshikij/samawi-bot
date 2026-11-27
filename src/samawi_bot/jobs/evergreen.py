@@ -12,7 +12,7 @@ from typing import Any
 from pydantic import ValidationError
 from sqlalchemy import func, select
 
-from ..alerts import safe_send
+from ..alerts import alert_if_out_of_credit, safe_send
 from ..app import App
 from ..brain.models import Draft, Pillar
 from ..brain.planner import BRIDGES, choose_bridges
@@ -69,6 +69,8 @@ def top_up(app: App, count: int, pillars: list[str] | None = None) -> dict[str, 
         if ok is None or ok.draft is None or ok.gate is None or ok.gate.hook_index is None:
             failed += 1
             reports.append(f"{pillar}: " + attempts[-1].notes()[:600])
+            if alert_if_out_of_credit(app.mailer, [a.error for a in attempts], "The evergreen top-up"):
+                break  # every further draft would be refused the same way
             continue
         # A bank post must also render (no overflow, fonts, contrast): one that cannot is not admitted,
         # so a fallback day never discovers it at 02:00.

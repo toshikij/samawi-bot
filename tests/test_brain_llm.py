@@ -79,7 +79,7 @@ def test_structured_request_shape_and_usage() -> None:
     assert kw["messages"] == [{"role": "user", "content": "user text"}]
     assert kw["betas"] == ["server-side-fallback-2026-07-01"]
     assert kw["fallbacks"] == "default"
-    assert llm.usage == [{"input": 11, "output": 7}]
+    assert llm.usage == [{"model": "claude-opus-5-5", "input": 11, "output": 7}]
 
 
 def test_structured_default_effort_is_high_and_schema_passed_through() -> None:
@@ -88,6 +88,35 @@ def test_structured_default_effort_is_high_and_schema_passed_through() -> None:
     kw = client.messages.calls[0]
     assert kw["output_config"] == {"effort": "high"}
     assert kw["output_format"] is JudgeReport
+
+
+def test_writer_calls_use_the_writer_model_and_judge_calls_the_judge_model() -> None:
+    client = FakeClient(_ok(Tiny(answer="x")))
+    llm = ClaudeLLM(client, model="claude-opus-5-5", writer_model="claude-haiku-5-5")  # type: ignore[arg-type]
+    llm.structured("s", "u", Tiny, role="writer")
+    llm.structured("s", "u", Tiny, role="judge")
+    llm.structured("s", "u", Tiny)  # no role: a judge call, never the cheaper model
+    writer, judge, unlabelled = client.messages.calls
+    assert writer["model"] == "claude-haiku-5-5"
+    assert judge["model"] == unlabelled["model"] == "claude-opus-5-5"
+    assert [u["model"] for u in llm.usage] == ["claude-haiku-5-5", "claude-opus-5-5", "claude-opus-5-5"]
+
+
+def test_haiku_gets_no_server_side_fallback_but_opus_does() -> None:
+    """Haiku 5.5 has no server-side refusal fallback; sending the parameter would fail every writer call."""
+    client = FakeClient(_ok(Tiny(answer="x")))
+    llm = ClaudeLLM(client, writer_model="claude-haiku-5-5")  # type: ignore[arg-type]
+    llm.structured("s", "u", Tiny, role="writer")
+    llm.structured("s", "u", Tiny, role="judge")
+    writer, judge = client.messages.calls
+    assert "fallbacks" not in writer and "betas" not in writer
+    assert judge["fallbacks"] == "default" and judge["betas"] == ["server-side-fallback-2026-07-01"]
+
+
+def test_without_a_writer_model_every_call_uses_the_one_model() -> None:
+    client = FakeClient(_ok(Tiny(answer="x")))
+    ClaudeLLM(client).structured("s", "u", Tiny, role="writer")  # type: ignore[arg-type]
+    assert client.messages.calls[0]["model"] == "claude-opus-5-5"
 
 
 def test_custom_model_is_used() -> None:
@@ -109,7 +138,7 @@ def test_bad_responses_raise(stop_reason: str, parsed: Any, match: str) -> None:
     with pytest.raises(LLMError, match=match):
         llm.structured("s", "u", Tiny)
     # usage is still recorded for a billed but unusable reply
-    assert llm.usage == [{"input": 11, "output": 7}]
+    assert llm.usage == [{"model": "claude-opus-5-5", "input": 11, "output": 7}]
 
 
 @pytest.mark.parametrize(
@@ -144,3 +173,15 @@ def test_unexpected_exception_is_not_swallowed() -> None:
     llm = ClaudeLLM(FakeClient(KeyError("bug")))  # type: ignore[arg-type]
     with pytest.raises(KeyError):
         llm.structured("s", "u", Tiny)
+
+
+def test_an_empty_credit_balance_is_its_own_error() -> None:
+    from samawi_bot.brain.llm import OUT_OF_CREDIT, LLMOutOfCredit
+
+    exc = anthropic.BadRequestError("Your credit balance is too low to access the Anthropic API.", response=_response(400), body=None)
+    with pytest.raises(LLMOutOfCredit, match=OUT_OF_CREDIT):
+        ClaudeLLM(FakeClient(exc)).structured("s", "u", Tiny)  # type: ignore[arg-type]
+    other = anthropic.BadRequestError("max_tokens is too large", response=_response(400), body=None)
+    with pytest.raises(LLMError) as info:
+        ClaudeLLM(FakeClient(other)).structured("s", "u", Tiny)  # type: ignore[arg-type]
+    assert not isinstance(info.value, LLMOutOfCredit)

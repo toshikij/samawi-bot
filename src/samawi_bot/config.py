@@ -29,7 +29,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     anthropic_api_key: str = ""
-    claude_model: str = "claude-opus-5-5"
+    claude_model: str = "claude-opus-5-5"  # judges: claim checks and hook scores
+    claude_writer_model: str = "claude-haiku-5-5"  # drafts and hook rewrites; checked by claude_model
 
     ig_user_id: str = ""
     ig_access_token: str = ""

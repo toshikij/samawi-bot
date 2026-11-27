@@ -83,9 +83,11 @@ class FakeLLM:
     def __init__(self, responses: dict[str, list[Any]] | None = None):
         self.responses = responses or {}
         self.calls: list[tuple[str, str, str]] = []
+        self.roles: list[tuple[str, str]] = []
 
-    def structured(self, system: str, user: str, schema: type[BaseModel], effort: str = "high") -> Any:
+    def structured(self, system: str, user: str, schema: type[BaseModel], effort: str = "high", role: str = "judge") -> Any:
         self.calls.append((schema.__name__, system, user))
+        self.roles.append((schema.__name__, role))
         queue = self.responses.get(schema.__name__) or []
         if not queue:
             raise LLMError(f"FakeLLM has no {schema.__name__} response queued")

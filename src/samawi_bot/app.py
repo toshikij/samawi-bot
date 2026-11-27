@@ -93,7 +93,11 @@ def build_app(settings: Settings) -> App:
         storage=storage,
         mailer=mailer,
         http=httpx.Client(timeout=60, headers={"User-Agent": "samawi-bot/1.0"}),
-        llm_factory=lambda: ClaudeLLM(anthropic.Anthropic(api_key=settings.anthropic_api_key or None, max_retries=3, timeout=600), model=settings.claude_model),
+        llm_factory=lambda: ClaudeLLM(
+            anthropic.Anthropic(api_key=settings.anthropic_api_key or None, max_retries=3, timeout=600),
+            model=settings.claude_model,
+            writer_model=settings.claude_writer_model,
+        ),
         sources_factory=lambda: Sources.load(settings.snapshot_dir, hadith_dir),
         sleep=time.sleep,
         scheduler=boto3.client("scheduler", region_name=settings.aws_region) if settings.scheduler_role_arn else None,
